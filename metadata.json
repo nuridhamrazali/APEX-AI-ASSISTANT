@@ -1,0 +1,10 @@
+{
+  "name": "APEX",
+  "description": "An AI Assistant named APEX with speech-to-text, text-to-speech, and Antigravity agent integration for task handling.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
