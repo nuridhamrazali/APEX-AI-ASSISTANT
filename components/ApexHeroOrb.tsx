@@ -90,7 +90,7 @@ export default function ApexHeroOrb({ state: controlled, onStateChange, interact
       >
         {/* golden ring frame - same SVG as the app, label/equalizer hidden */}
         <div style={{ position: "absolute", left: 0, top: (STAGE_H - 520) / 2, pointerEvents: "none" }}>
-          
+          <ApexOrb state={state} variant="frame" onRingClick={undefined} />
         </div>
         {/* cyan particle core - contained to this stage instead of full-screen.
             Skipped entirely under prefers-reduced-motion (static ring remains). */}

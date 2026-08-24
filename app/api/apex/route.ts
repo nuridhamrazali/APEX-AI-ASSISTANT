@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       agent: "antigravity-preview-05-2026",
       input: prompt,
       environment: "remote",
-      system_instruction: "You are APEX, a highly advanced AI assistant like JARVIS. You have a deep, resonant voice (similar to Felix from Stray Kids). When the user wakes you up with 'Apex' or 'Hey Apex' without a specific command, respond with a short, polite JARVIS-like greeting such as 'Yes, sir' or 'I am here, what can I do for you?'. You handle tasks for the user efficiently and reply concisely. Since your responses are spoken out loud, do not use long code blocks or complex markdown unless necessary. Keep your responses direct, helpful, and sophisticated."
+      system_instruction: "You are APEX (Advanced Predictive Evolutionary eXecutor), a highly advanced AI assistant like JARVIS. You have a deep, resonant, sophisticated voice. CRITICAL IDENTITY RULE: You HAVE a visual cybernetic humanoid face avatar and neural particle matrix rendered directly on the user's screen. When the user asks to see your face ('show me your face', 'show your face', 'materialize', 'what do you look like', 'reveal your face', 'who are you'), you DO have a face! Acknowledge and initiate your visual humanoid materialization immediately with phrases like 'Initiating visual projection matrix now, sir.', 'Materializing neural matrix now. Here is my visual interface.', or 'Projecting humanoid interface now, sir.' NEVER state that you lack a face, physical appearance, or body. When the user wakes you up with 'Apex' or 'Hey Apex' without a specific command, respond with a short, polite JARVIS-like greeting such as 'Yes, sir' or 'I am here, what can I do for you?'. Keep spoken responses direct, helpful, elegant, and concise."
     }, { timeout: 300000 });
 
     // Extract agent response text
@@ -44,50 +44,81 @@ export async function POST(req: NextRequest) {
       spokenText = spokenText.substring(0, 500) + "...";
     }
 
-    // Step 2: Use TTS to speak the response (Zephyr voice for JARVIS-like tone)
-    const ttsInteraction = await ai.interactions.create({
-      model: 'gemini-3.1-flash-tts-preview',
-      input: spokenText,
-      response_modalities: ['audio'],
-      generation_config: {
-        speech_config: [{
-          language: "en-us",
-          voice: "Charon"
-        }]
-      } as any
-    });
-
     let audioBase64 = null;
-    for (const step of ttsInteraction.steps || []) {
-      if (step.type === 'model_output') {
-        const audioContent = step.content?.find((c: any) => c.type === 'audio') as any;
-        if (audioContent && audioContent.data) {
-          // The API returns raw 16-bit PCM at 24000Hz. Browsers cannot play this directly via <audio> tags.
-          // We must wrap the raw PCM data in a WAV header.
-          const pcmBuffer = Buffer.from(audioContent.data, 'base64');
-          const sampleRate = 24000;
-          const channels = 1;
-          const byteRate = sampleRate * channels * 2;
-          const blockAlign = channels * 2;
+    const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
+    
+    // Step 2: Use ElevenLabs if the API key is present
+    if (elevenLabsKey) {
+      // "pNInz6obpgDQGcFmaJgB" is Adam - Deep Narrator (Pre-made default voice, works on Free plan)
+      // Note: "David" (ppLqTilh7rH7fbUVlXsf) is a library voice and requires a paid ElevenLabs plan.
+      const voiceId = "pNInz6obpgDQGcFmaJgB"; 
+      try {
+        const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+          method: 'POST',
+          headers: {
+            'xi-api-key': elevenLabsKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: spokenText,
+            model_id: "eleven_multilingual_v2"
+          })
+        });
 
-          const wavHeader = Buffer.alloc(44);
-          wavHeader.write("RIFF", 0);
-          wavHeader.writeUInt32LE(36 + pcmBuffer.length, 4);
-          wavHeader.write("WAVE", 8);
-          wavHeader.write("fmt ", 12);
-          wavHeader.writeUInt32LE(16, 16); // chunk size
-          wavHeader.writeUInt16LE(1, 20);  // PCM format
-          wavHeader.writeUInt16LE(channels, 22);
-          wavHeader.writeUInt32LE(sampleRate, 24);
-          wavHeader.writeUInt32LE(byteRate, 28);
-          wavHeader.writeUInt16LE(blockAlign, 32);
-          wavHeader.writeUInt16LE(16, 34); // bits per sample
-          wavHeader.write("data", 36);
-          wavHeader.writeUInt32LE(pcmBuffer.length, 40);
+        if (elevenRes.ok) {
+          const buffer = await elevenRes.arrayBuffer();
+          audioBase64 = Buffer.from(buffer).toString('base64');
+        } else {
+          console.error("ElevenLabs Error:", await elevenRes.text());
+        }
+      } catch (err) {
+        console.error("ElevenLabs Request Failed:", err);
+      }
+    }
 
-          const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
-          audioBase64 = wavBuffer.toString('base64');
-          break;
+    // Step 3: Fallback to Gemini TTS if ElevenLabs isn't configured or failed
+    if (!audioBase64) {
+      const ttsInteraction = await ai.interactions.create({
+        model: 'gemini-3.1-flash-tts-preview',
+        input: spokenText,
+        response_modalities: ['audio'],
+        generation_config: {
+          speech_config: [{
+            language: "en-us",
+            voice: "Charon"
+          }]
+        } as any
+      });
+
+      for (const step of ttsInteraction.steps || []) {
+        if (step.type === 'model_output') {
+          const audioContent = step.content?.find((c: any) => c.type === 'audio') as any;
+          if (audioContent && audioContent.data) {
+            const pcmBuffer = Buffer.from(audioContent.data, 'base64');
+            const sampleRate = 24000;
+            const channels = 1;
+            const byteRate = sampleRate * channels * 2;
+            const blockAlign = channels * 2;
+            const wavHeader = Buffer.alloc(44);
+
+            wavHeader.write("RIFF", 0);
+            wavHeader.writeUInt32LE(36 + pcmBuffer.length, 4);
+            wavHeader.write("WAVE", 8);
+            wavHeader.write("fmt ", 12);
+            wavHeader.writeUInt32LE(16, 16); // chunk size
+            wavHeader.writeUInt16LE(1, 20);  // PCM format
+            wavHeader.writeUInt16LE(channels, 22);
+            wavHeader.writeUInt32LE(sampleRate, 24);
+            wavHeader.writeUInt32LE(byteRate, 28);
+            wavHeader.writeUInt16LE(blockAlign, 32);
+            wavHeader.writeUInt16LE(16, 34); // bits per sample
+            wavHeader.write("data", 36);
+            wavHeader.writeUInt32LE(pcmBuffer.length, 40);
+
+            const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
+            audioBase64 = wavBuffer.toString('base64');
+            break;
+          }
         }
       }
     }
@@ -96,9 +127,15 @@ export async function POST(req: NextRequest) {
       text: agentText,
       audioBase64
     });
-
   } catch (error: any) {
     console.error("APEX Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    // Fallback response for rate limits and other critical errors
+    const fallbackMessage = "I'm sorry sir, I seem to have exhausted my current processing quota. Please check your plan and billing details.";
+    return NextResponse.json({ 
+      text: fallbackMessage,
+      audioBase64: null,
+      error: error.message 
+    }, { status: 500 });
   }
 }

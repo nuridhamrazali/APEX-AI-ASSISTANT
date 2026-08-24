@@ -11,11 +11,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { MessageSquare, X, Send } from "lucide-react";
+import { MessageSquare, X, Send, Eye, Sparkles } from "lucide-react";
 import ApexHeroOrb, { type OrbState } from "./ApexHeroOrb";
 import ReasoningWebJs from "./ReasoningWeb";
 import ShaderBackgroundJs from "./ShaderBackground";
 import OrbStatusBar from "./OrbStatusBar";
+import HumanoidFace from "./HumanoidFace";
 
 export type NodeSel = { name: string; key: string; color: string };
 
@@ -249,6 +250,7 @@ export default function ApexWorld() {
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
+  const [showHumanoid, setShowHumanoid] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   const boost = () => {
@@ -264,7 +266,42 @@ export default function ApexWorld() {
     }
   };
 
+  const isFaceCommand = (text: string) => {
+    const t = text.toLowerCase();
+    return (
+      t.includes("face") ||
+      t.includes("humanoid") ||
+      t.includes("avatar") ||
+      t.includes("materialize") ||
+      t.includes("look like") ||
+      t.includes("who are you") ||
+      t.includes("reveal") ||
+      t.includes("show me you")
+    );
+  };
+
+  const isDismissFaceCommand = (text: string) => {
+    const t = text.toLowerCase();
+    return (
+      t.includes("hide face") ||
+      t.includes("close face") ||
+      t.includes("dismiss face") ||
+      t.includes("back to orb") ||
+      t.includes("hide humanoid") ||
+      t.includes("exit face")
+    );
+  };
+
   const processCommand = async (transcript: string) => {
+    const isFace = isFaceCommand(transcript);
+    const isDismiss = isDismissFaceCommand(transcript);
+
+    if (isFace) {
+      setShowHumanoid(true);
+    } else if (isDismiss) {
+      setShowHumanoid(false);
+    }
+
     setShowState("thinking");
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch (e) {}
@@ -278,21 +315,12 @@ export default function ApexWorld() {
       });
       
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (data.error && !data.text) throw new Error(data.error);
 
       if (data.audioBase64) {
         setShowState("speaking");
-        const byteCharacters = atob(data.audioBase64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
+        const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
         audio.onended = () => {
-          URL.revokeObjectURL(url);
           if (isAwakeRef.current) {
             setShowState("listening");
             try { recognitionRef.current?.start(); } catch(e) {}
@@ -304,12 +332,27 @@ export default function ApexWorld() {
           console.error("Audio playback failed", e);
           if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
         });
+      } else if (data.text) {
+        setShowState("speaking");
+        const msg = new SpeechSynthesisUtterance(data.text);
+        msg.onend = () => {
+          if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
+        };
+        window.speechSynthesis.speak(msg);
       } else {
         if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("APEX Error:", err);
-      if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
+      setShowState("speaking");
+      const text = isFace 
+        ? "Initiating visual projection matrix now, sir. Neural humanoid interface online." 
+        : (err.message || "I'm sorry sir, I am experiencing a temporary system failure.");
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.onend = () => {
+        if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
+      };
+      window.speechSynthesis.speak(msg);
     }
   };
 
@@ -399,6 +442,12 @@ export default function ApexWorld() {
         </div>
       )}
 
+      {showHumanoid && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60 }}>
+          <HumanoidFace onComplete={() => setShowHumanoid(false)} />
+        </div>
+      )}
+
       {/* cyan LIGHT-CAST - app copy exactly: mixBlendMode screen (only ever LIFTS the
           navy, never darkens), brightens while speaking. The app has NO dark moat disc
           in dark mode - that layer is its light-theme "reactor well" only. */}
@@ -461,7 +510,7 @@ export default function ApexWorld() {
       {/* equalizer + STANDBY cluster */}
       <OrbStatusBar state={orbState} />
 
-      {/* Chat UI */}
+      {/* Chat and Action Controls */}
       <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
         {chatOpen && (
           <form onSubmit={handleChatSubmit} style={{ 
@@ -478,7 +527,7 @@ export default function ApexWorld() {
               type="text" 
               value={chatInput} 
               onChange={(e) => setChatInput(e.target.value)} 
-              placeholder="Message APEX..." 
+              placeholder="Message APEX or ask to see face..." 
               autoFocus
               style={{
                 background: "transparent",
@@ -505,27 +554,62 @@ export default function ApexWorld() {
             </button>
           </form>
         )}
-        <button 
-          onClick={() => setChatOpen(!chatOpen)}
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            background: "rgba(13,210,255,0.1)",
-            border: "1px solid rgba(13,210,255,0.3)",
-            color: "rgba(13,210,255,0.9)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            backdropFilter: "blur(8px)",
-            transition: "all 0.2s ease"
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(13,210,255,0.2)" }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(13,210,255,0.1)" }}
-        >
-          {chatOpen ? <X size={20} /> : <MessageSquare size={20} />}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button 
+            onClick={() => {
+              const next = !showHumanoid;
+              setShowHumanoid(next);
+              if (next) {
+                processCommand("show me your face apex");
+              }
+            }}
+            title="Materialize Neural Humanoid Face"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "0 14px",
+              height: 48,
+              borderRadius: 24,
+              background: showHumanoid ? "rgba(255,154,60,0.2)" : "rgba(13,210,255,0.12)",
+              border: `1px solid ${showHumanoid ? "rgba(255,154,60,0.5)" : "rgba(13,210,255,0.35)"}`,
+              color: showHumanoid ? "#ff9a3c" : "rgba(13,210,255,0.95)",
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.78rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              backdropFilter: "blur(8px)",
+              transition: "all 0.2s ease"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = showHumanoid ? "rgba(255,154,60,0.3)" : "rgba(13,210,255,0.22)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = showHumanoid ? "rgba(255,154,60,0.2)" : "rgba(13,210,255,0.12)" }}
+          >
+            <Eye size={16} />
+            <span>{showHumanoid ? "CLOSE FACE" : "SHOW FACE"}</span>
+          </button>
+
+          <button 
+            onClick={() => setChatOpen(!chatOpen)}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              background: "rgba(13,210,255,0.1)",
+              border: "1px solid rgba(13,210,255,0.3)",
+              color: "rgba(13,210,255,0.9)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              backdropFilter: "blur(8px)",
+              transition: "all 0.2s ease"
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(13,210,255,0.2)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(13,210,255,0.1)" }}
+          >
+            {chatOpen ? <X size={20} /> : <MessageSquare size={20} />}
+          </button>
+        </div>
       </div>
 
       {selected && <AgentOverview sel={selected} onClose={() => setSelected(null)} />}
