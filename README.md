@@ -3,6 +3,8 @@
 This branch connects the HUD to Gemini conversation and Fish Audio speech using voice
 `e6b437b389c34041856d56d3cde1f494`.
 
+Requires Node.js 20.9 or newer.
+
 1. Copy `.env.example` to `.env.local` and enter `GEMINI_API_KEY` and `FISH_AUDIO_API_KEY`.
 2. Set `GEMINI_MODEL` to a model available to your account if the example is unavailable.
 3. Run `npm install`, then `npm run dev`.
