@@ -347,7 +347,16 @@ export default function ApexWorld() {
         setTurns(historyRef.current);
       }
       if (data.memorySaved) setNotice("Conversation saved to Obsidian. Clear screen keeps saved notes.");
-      if (data.voiceError) setNotice(data.voiceError);
+      setNotice("Reply ready. Preparing voice…");
+      const voiceResponse = await fetch('/api/voice', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: data.text }), signal: controller.signal,
+      });
+      const voice = await voiceResponse.json();
+      if (controller.signal.aborted) return;
+      if (!voiceResponse.ok) throw new Error(voice.error || "Voice request failed.");
+      Object.assign(data, voice);
+      setNotice(data.voiceError || (data.memorySaved ? "Saved to Obsidian." : ""));
       if (!data.audioBase64) { finish(); return; }
       const audio = new Audio(`data:${data.audioMimeType || "audio/mpeg"};base64,${data.audioBase64}`);
       setLastAudio(audio.src);

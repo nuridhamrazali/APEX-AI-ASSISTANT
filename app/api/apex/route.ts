@@ -22,21 +22,5 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Hermes failed to respond." }, { status: 502 });
   }
-  const { text } = result;
-  const key = process.env.FISH_AUDIO_API_KEY;
-  if (!key) return NextResponse.json({ ...result, audioBase64: null, voiceError: "Fish Audio is not configured. Add FISH_AUDIO_API_KEY on the server." });
-  try {
-    const audio = await fetch("https://api.fish.audio/v1/tts", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", model: process.env.FISH_AUDIO_MODEL || "s2.1-pro-free" },
-      body: JSON.stringify({ text: spokenText(text), reference_id: process.env.FISH_AUDIO_VOICE_ID || "e6b437b389c34041856d56d3cde1f494", format: "mp3", prosody: { speed: 0.95 } }),
-      signal: AbortSignal.timeout(45000),
-    });
-    if (!audio.ok) throw new Error("Voice unavailable");
-    const bytes = await audio.arrayBuffer();
-    if (!bytes.byteLength) throw new Error("Empty audio");
-    return NextResponse.json({ ...result, audioBase64: Buffer.from(bytes).toString("base64"), audioMimeType: "audio/mpeg" });
-  } catch {
-    return NextResponse.json({ ...result, audioBase64: null, voiceError: "Fish Audio could not speak this reply. Check voice access, API key and quota. Your reply is available below." });
-  }
+  return NextResponse.json(result);
 }

@@ -1,6 +1,6 @@
 # APEX: Hermes harness + Obsidian memory (Windows)
 
-The web app now runs Nous Research's actual `AIAgent` Python library per request.
+The web app runs Nous Research's actual `AIAgent` Python library in a reusable worker.
 Hermes controls its reasoning/tool loop. Gemini is the default model provider, Fish
 Audio speaks, and Obsidian opens the saved conversation Markdown files.
 
@@ -117,3 +117,15 @@ local setup and credentials and have not been tested here.
 References: [Hermes library](https://hermes-agent.nousresearch.com/docs/guides/python-library),
 [Gemini compatibility](https://ai.google.dev/gemini-api/docs/openai),
 [Obsidian storage](https://help.obsidian.md/Files+and+folders/How+Obsidian+stores+data).
+
+## Response speed
+
+The Python worker stays warm for five minutes after a reply; each turn still uses
+a fresh agent with the current history. The first request after startup, stopping,
+an error, or five minutes idle reloads Hermes and may be slower. Text appears before
+Fish Audio generation finishes. Speech still waits for the complete MP3.
+
+Set `FISH_AUDIO_SPEED=1.15` in `.env.local` for a brisk voice (default); use `1.0`
+for normal speed or `1.25` for faster delivery. Restart `npm run dev` after changing it.
+The selected voice and API service affect perceived pace and response time; these
+changes do not guarantee a specific latency.

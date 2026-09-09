@@ -14,15 +14,18 @@ const env = {};
 let harnessFail = false;
 const originGuard = load('lib/request-origin.ts', require, {URL});
 let fishStatus = true, llmFailure = false, sent, generation;
-const api = load('app/api/apex/route.ts', name => {
+const resolve = name => {
   if (name === '@/lib/hermes') return {runHermes:async(prompt,history,system)=>{ if(harnessFail) throw Error('Hermes unavailable'); generation={system,history}; return {text:'Here is your draft.',harness:'hermes',memorySaved:true,memoryNote:'test.md'}; }};
   if (name === '@/lib/request-origin') return originGuard;
   if (name === '@/lib/personality') return personality;
   if (name === 'next/server') return {NextResponse:{json:(body,options)=>({body,status:options?.status||200})}};
   if (name === '@google/genai') return {GoogleGenAI:class { models={generateContent:async args=>{ generation=args; if(llmFailure) throw Error(); return {text:'Here is your draft.'}; }}; }};
   throw Error(name);
-}, {process:{env},Buffer,AbortSignal, fetch:async (url, options)=>{sent={url,...options};return {ok:fishStatus,arrayBuffer:async()=>Buffer.from('mock mp3')}}});
-function req(body, origin='http://localhost:3000') {return {headers:new Headers({origin}),nextUrl:new URL('http://localhost:3000/api/apex'),text:async()=>JSON.stringify(body)}}
+};
+const globals = {process:{env},Buffer,AbortSignal, fetch:async (url, options)=>{sent={url,...options};return {ok:fishStatus,arrayBuffer:async()=>Buffer.from('mock mp3')}}};
+const api = load('app/api/apex/route.ts', resolve, globals);
+const voice = load('app/api/voice/route.ts', resolve, globals);
+function req(body, origin='http://localhost:3000') {return {headers:new Headers({origin}),nextUrl:new URL('http://localhost:3000/api/apex'),text:async()=>JSON.stringify(body),json:async()=>body,signal:new AbortController().signal}}
 (async()=>{
   const internal = new URL('http://0.0.0.0:3000/api/apex');
   assert.equal(originGuard.allowedOrigin(new Headers({origin:'http://localhost:3000',host:'localhost:3000'}),internal),true);
@@ -37,16 +40,19 @@ function req(body, origin='http://localhost:3000') {return {headers:new Headers(
   harnessFail=true; assert.equal((await api.POST(req({prompt:'hello'}))).status,502); harnessFail=false;
   env.GEMINI_API_KEY='test';
   let r=await api.POST(req({prompt:'hello',personality:'focused',history:[{role:'assistant',text:'Earlier response'}]}));
-  assert.equal(r.body.text,'Here is your draft.');assert.ok(r.body.voiceError);
+  assert.equal(r.body.text,'Here is your draft.');assert.equal(r.body.audioBase64,undefined);
   assert.ok(generation.system.includes('Skip jokes'));
   assert.equal(generation.history[0].role,'assistant');
   assert.equal(r.body.memorySaved,true);
   env.FISH_AUDIO_API_KEY='test';
-  r=await api.POST(req({prompt:'hello'}));
+  r=await voice.POST(req({text:'hello'}));
   assert.equal(r.body.audioMimeType,'audio/mpeg');assert.ok(r.body.audioBase64);
   assert.equal(JSON.parse(sent.body).reference_id,'e6b437b389c34041856d56d3cde1f494');
   assert.equal(sent.headers.Authorization,'Bearer test');
-  fishStatus=false;r=await api.POST(req({prompt:'hello'}));assert.ok(r.body.voiceError);assert.equal(r.body.text,'Here is your draft.');
+  assert.equal(JSON.parse(sent.body).prosody.speed,1.15);
+  env.FISH_AUDIO_SPEED='9'; await voice.POST(req({text:'hello'})); assert.equal(JSON.parse(sent.body).prosody.speed,2);
+  env.FISH_AUDIO_SPEED='oops'; await voice.POST(req({text:'hello'})); assert.equal(JSON.parse(sent.body).prosody.speed,1.15);
+  fishStatus=false;r=await voice.POST(req({text:'hello'}));assert.ok(r.body.voiceError);
   harnessFail=true;assert.equal((await api.POST(req({prompt:'hello'}))).status,502);
   assert.ok(!personality.spokenText('```js\nrun()\n```').includes('executed'));
   console.log('Passed: validation, origin, missing credentials, history/personality, Fish voice/MIME, provider failures, honest code narration.');
