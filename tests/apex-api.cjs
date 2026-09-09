@@ -11,9 +11,11 @@ function load(path, requireMock, globals = {}) {
 }
 const personality = load('lib/personality.ts', require);
 const env = {};
+let harnessFail = false;
 const originGuard = load('lib/request-origin.ts', require, {URL});
 let fishStatus = true, llmFailure = false, sent, generation;
 const api = load('app/api/apex/route.ts', name => {
+  if (name === '@/lib/hermes') return {runHermes:async(prompt,history,system)=>{ if(harnessFail) throw Error('Hermes unavailable'); generation={system,history}; return {text:'Here is your draft.',harness:'hermes',memorySaved:true,memoryNote:'test.md'}; }};
   if (name === '@/lib/request-origin') return originGuard;
   if (name === '@/lib/personality') return personality;
   if (name === 'next/server') return {NextResponse:{json:(body,options)=>({body,status:options?.status||200})}};
@@ -32,19 +34,20 @@ function req(body, origin='http://localhost:3000') {return {headers:new Headers(
 
   assert.equal((await api.POST(req({prompt:''}))).status,400);
   assert.equal((await api.POST(req({prompt:'hello'},'https://other.example'))).status,403);
-  assert.equal((await api.POST(req({prompt:'hello'}))).status,503);
+  harnessFail=true; assert.equal((await api.POST(req({prompt:'hello'}))).status,502); harnessFail=false;
   env.GEMINI_API_KEY='test';
   let r=await api.POST(req({prompt:'hello',personality:'focused',history:[{role:'assistant',text:'Earlier response'}]}));
   assert.equal(r.body.text,'Here is your draft.');assert.ok(r.body.voiceError);
-  assert.ok(generation.config.systemInstruction.includes('Skip jokes'));
-  assert.equal(generation.contents[0].role,'model');
+  assert.ok(generation.system.includes('Skip jokes'));
+  assert.equal(generation.history[0].role,'assistant');
+  assert.equal(r.body.memorySaved,true);
   env.FISH_AUDIO_API_KEY='test';
   r=await api.POST(req({prompt:'hello'}));
   assert.equal(r.body.audioMimeType,'audio/mpeg');assert.ok(r.body.audioBase64);
   assert.equal(JSON.parse(sent.body).reference_id,'e6b437b389c34041856d56d3cde1f494');
   assert.equal(sent.headers.Authorization,'Bearer test');
   fishStatus=false;r=await api.POST(req({prompt:'hello'}));assert.ok(r.body.voiceError);assert.equal(r.body.text,'Here is your draft.');
-  llmFailure=true;assert.equal((await api.POST(req({prompt:'hello'}))).status,502);
+  harnessFail=true;assert.equal((await api.POST(req({prompt:'hello'}))).status,502);
   assert.ok(!personality.spokenText('```js\nrun()\n```').includes('executed'));
   console.log('Passed: validation, origin, missing credentials, history/personality, Fish voice/MIME, provider failures, honest code narration.');
 })().catch(e=>{console.error(e);process.exitCode=1});

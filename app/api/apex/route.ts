@@ -1,9 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import { runHermes, type HermesReply } from "@/lib/hermes";
 import { NextRequest, NextResponse } from "next/server";
 import { allowedOrigin } from "@/lib/request-origin";
 import { PERSONALITIES, systemPrompt, spokenText, type Personality, type Turn } from "@/lib/personality";
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 export async function POST(req: NextRequest) {
   if (!allowedOrigin(req.headers, req.nextUrl, process.env.APEX_ALLOWED_ORIGINS)) return NextResponse.json({ error: "This page address is not allowed. Open APEX at the server address, or add your exact public URL to APEX_ALLOWED_ORIGINS on the server." }, { status: 403 });
   let body;
@@ -16,23 +16,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid conversation history." }, { status: 400 });
   }
   const mode: Personality = Object.prototype.hasOwnProperty.call(PERSONALITIES, body.personality ?? "") ? body.personality : "balanced";
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "Add GEMINI_API_KEY to the server environment to enable conversation." }, { status: 503 });
-  let text: string;
+  let result: HermesReply;
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
-      contents: [...history, { role: "user", text: body.prompt.trim() }].map(t => ({ role: t.role === "assistant" ? "model" : "user", parts: [{ text: t.text }] })),
-      config: { systemInstruction: systemPrompt(mode), maxOutputTokens: 3000, httpOptions: { timeout: 60000 } },
-    });
-    text = response.text?.trim() || "";
-    if (!text) throw new Error("Empty response");
-  } catch {
-    return NextResponse.json({ error: "APEX could not generate a reply. Check the server's Gemini model, credentials and quota, then retry." }, { status: 502 });
+    result = await runHermes(body.prompt.trim(), history, systemPrompt(mode), req.signal);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Hermes failed to respond." }, { status: 502 });
   }
+  const { text } = result;
   const key = process.env.FISH_AUDIO_API_KEY;
-  if (!key) return NextResponse.json({ text, audioBase64: null, voiceError: "Fish Audio is not configured. Add FISH_AUDIO_API_KEY on the server." });
+  if (!key) return NextResponse.json({ ...result, audioBase64: null, voiceError: "Fish Audio is not configured. Add FISH_AUDIO_API_KEY on the server." });
   try {
     const audio = await fetch("https://api.fish.audio/v1/tts", {
       method: "POST",
@@ -43,8 +35,8 @@ export async function POST(req: NextRequest) {
     if (!audio.ok) throw new Error("Voice unavailable");
     const bytes = await audio.arrayBuffer();
     if (!bytes.byteLength) throw new Error("Empty audio");
-    return NextResponse.json({ text, audioBase64: Buffer.from(bytes).toString("base64"), audioMimeType: "audio/mpeg" });
+    return NextResponse.json({ ...result, audioBase64: Buffer.from(bytes).toString("base64"), audioMimeType: "audio/mpeg" });
   } catch {
-    return NextResponse.json({ text, audioBase64: null, voiceError: "Fish Audio could not speak this reply. Check voice access, API key and quota. Your reply is available below." });
+    return NextResponse.json({ ...result, audioBase64: null, voiceError: "Fish Audio could not speak this reply. Check voice access, API key and quota. Your reply is available below." });
   }
 }

@@ -1,46 +1,23 @@
-# APEX voice and personality setup
+# APEX with Hermes and Obsidian
 
-This branch connects the HUD to Gemini conversation and Fish Audio speech using voice
-`e6b437b389c34041856d56d3cde1f494`.
+Follow **[HERMES-SETUP.md](./HERMES-SETUP.md)** for the complete Windows setup.
 
-Requires Node.js 20.9 or newer.
+- Hermes Agent runs the tool loop through its Python AIAgent runtime.
+- Gemini is the default model provider; Fish Audio uses the selected voice.
+- Every new turn reaching the bridge is archived in an Obsidian vault.
+- Keyword recall and an Obsidian search tool retrieve saved conversation excerpts.
+- The HUD includes personality modes, English/Malay microphone input and a particle avatar.
 
-1. Copy `.env.example` to `.env.local` and enter `GEMINI_API_KEY` and `FISH_AUDIO_API_KEY`.
-2. Set `GEMINI_MODEL` to a model available to your account if the example is unavailable.
-3. Run `npm install`, then `npm run dev`.
-4. Open the chat button to choose balanced, focused or conversational personality.
-5. Choose English or Bahasa Melayu before enabling the microphone. Tap the orb and say
-   “Apex” followed by your request. Tap again or use Stop to interrupt.
+Put .env.local beside package.json. The Python environment must be installed before
+sending messages. This integration runs locally, not on serverless hosting. Only the
+Obsidian search tool is enabled; other external task integrations are not configured.
 
-The browser must support SpeechRecognition, with microphone permission on localhost or HTTPS.
-Recognition uses the browser's speech service; it is not an offline wake-word detector.
-Show Face opens a code-rendered cyan particle bust with an angular robot faceplate.
-Particles spiral into the figure over roughly five seconds. Re-form restarts it, Pause
-freezes it, and reduced-motion preferences skip the formation animation. Status follows
-APEX's current state. No image download or API call is needed to open the avatar.
-
-If your browser blocks automatic audio, use Play voice in the conversation panel.
-If a reverse proxy changes the public host or protocol, set APEX_ALLOWED_ORIGINS to the
-exact public URL (for example https://apex.example.com), then restart the server.
-Localhost requests are matched to the incoming Host rather than the internal bind address.
-
-Recent conversation (up to 12 messages) stays in tab memory and clears on refresh or Clear conversation.
-Fish failures show the text reply and an error; no substitute voice is used. MP3 playback
-starts after the audio response arrives, not as a streamed response.
-
-Keys belong only in the server environment, never in NEXT_PUBLIC variables or Git.
-Use a private/local instance or deployment access protection: this project does not yet
-include user authentication or a durable quota limiter for public usage.
-
-This is the conversation/voice foundation. Hermes Agent, autonomous execution, persistent
-memory, Gmail, calendar and the other pictured integrations are not connected. The previous
-hard-coded Antigravity call has been replaced by documented Gemini text generation; no
-remote execution is claimed. Face controls remain local UI actions.
-
-API references: [Fish Audio TTS](https://docs.fish.audio/api-reference/endpoint/openapi-v1/text-to-speech),
-[Gemini generation](https://ai.google.dev/gemini-api/docs/generate-content/text-generation).
+Tests: npm run build; node tests/apex-api.cjs; python -m unittest discover -s tests.
+Live model/voice calls and Windows runtime installation still need local validation.
 
 ---
+
+Original UI documentation and attribution:
 
 # APEX-UI
 

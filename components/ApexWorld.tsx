@@ -346,6 +346,7 @@ export default function ApexWorld() {
         historyRef.current = [...pending, { role: "assistant" as const, text: data.text }].slice(-12);
         setTurns(historyRef.current);
       }
+      if (data.memorySaved) setNotice("Conversation saved to Obsidian. Clear screen keeps saved notes.");
       if (data.voiceError) setNotice(data.voiceError);
       if (!data.audioBase64) { finish(); return; }
       const audio = new Audio(`data:${data.audioMimeType || "audio/mpeg"};base64,${data.audioBase64}`);
@@ -529,9 +530,9 @@ export default function ApexWorld() {
             </select></label>
             <label style={{ display: "block", marginTop: 8 }}>Voice input <select aria-label="Voice input language" value={language} disabled={isAwake} onChange={e => setLanguage(e.target.value)}><option value="en-US">English</option><option value="ms-MY">Bahasa Melayu</option></select></label>
             <p>Tap the orb, then say “Apex” followed by your request. Tap again to stop.</p>
-            <p style={{ opacity: .65 }}>Conversation and drafts · External tools not connected</p>
+            <p style={{ opacity: .65 }}>Hermes Agent · Obsidian conversation memory</p>
             <button type="button" onClick={stop}>Stop</button>{" "}
-            <button type="button" onClick={() => { stop(); historyRef.current = []; setTurns([]); setLastAudio(null); setNotice(""); }}>Clear conversation</button>
+            <button type="button" onClick={() => { stop(); historyRef.current = []; setTurns([]); setLastAudio(null); setNotice(""); }}>Clear screen</button>
             {lastAudio && <button type="button" onClick={() => {
               if (busyRef.current) return;
               busyRef.current = true;
