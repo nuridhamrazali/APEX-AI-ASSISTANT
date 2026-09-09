@@ -14,6 +14,16 @@ Requires Node.js 20.9 or newer.
 
 The browser must support SpeechRecognition, with microphone permission on localhost or HTTPS.
 Recognition uses the browser's speech service; it is not an offline wake-word detector.
+Show Face opens a code-rendered cyan particle bust with an angular robot faceplate.
+Particles spiral into the figure over roughly five seconds. Re-form restarts it, Pause
+freezes it, and reduced-motion preferences skip the formation animation. Status follows
+APEX's current state. No image download or API call is needed to open the avatar.
+
+If your browser blocks automatic audio, use Play voice in the conversation panel.
+If a reverse proxy changes the public host or protocol, set APEX_ALLOWED_ORIGINS to the
+exact public URL (for example https://apex.example.com), then restart the server.
+Localhost requests are matched to the incoming Host rather than the internal bind address.
+
 Recent conversation (up to 12 messages) stays in tab memory and clears on refresh or Clear conversation.
 Fish failures show the text reply and an error; no substitute voice is used. MP3 playback
 starts after the audio response arrives, not as a streamed response.

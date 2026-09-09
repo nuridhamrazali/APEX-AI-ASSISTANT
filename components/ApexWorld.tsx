@@ -261,6 +261,7 @@ export default function ApexWorld() {
   const [notice, setNotice] = useState("");
   const busyRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [lastAudio, setLastAudio] = useState<string | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const finish = () => {
     busyRef.current = false;
@@ -348,11 +349,12 @@ export default function ApexWorld() {
       if (data.voiceError) setNotice(data.voiceError);
       if (!data.audioBase64) { finish(); return; }
       const audio = new Audio(`data:${data.audioMimeType || "audio/mpeg"};base64,${data.audioBase64}`);
+      setLastAudio(audio.src);
       audioRef.current = audio;
       audio.onplaying = () => { if (controller.signal.aborted) { audio.pause(); return; } showStateRef.current = "speaking"; setShowState("speaking"); };
       audio.onended = finish;
       audio.onerror = () => { setNotice("Audio playback failed. Read the reply below."); finish(); };
-      try { await audio.play(); } catch { if (controller.signal.aborted) return; setNotice("Browser blocked playback. Read the reply below."); finish(); }
+      try { await audio.play(); } catch { if (controller.signal.aborted) return; setNotice("Browser blocked automatic playback. Press Play voice below."); finish(); }
     } catch (err: unknown) {
       if (controller.signal.aborted) return;
       setNotice(err instanceof Error ? err.message : "APEX could not process that request.");
@@ -452,7 +454,7 @@ export default function ApexWorld() {
 
       {showHumanoid && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60 }}>
-          <HumanoidFace onComplete={() => setShowHumanoid(false)} />
+          <HumanoidFace state={orbState} onComplete={() => setShowHumanoid(false)} />
         </div>
       )}
 
@@ -529,7 +531,17 @@ export default function ApexWorld() {
             <p>Tap the orb, then say “Apex” followed by your request. Tap again to stop.</p>
             <p style={{ opacity: .65 }}>Conversation and drafts · External tools not connected</p>
             <button type="button" onClick={stop}>Stop</button>{" "}
-            <button type="button" onClick={() => { stop(); historyRef.current = []; setTurns([]); setNotice(""); }}>Clear conversation</button>
+            <button type="button" onClick={() => { stop(); historyRef.current = []; setTurns([]); setLastAudio(null); setNotice(""); }}>Clear conversation</button>
+            {lastAudio && <button type="button" onClick={() => {
+              if (busyRef.current) return;
+              busyRef.current = true;
+              showStateRef.current = "speaking"; setShowState("speaking");
+              try { recognitionRef.current?.stop(); } catch {}
+              const audio = new Audio(lastAudio); audioRef.current = audio;
+              audio.onended = finish;
+              audio.onerror = () => { setNotice("Playback failed. Check your audio output device."); finish(); };
+              audio.play().catch(() => { setNotice("Playback failed. Check your browser sound permissions."); finish(); });
+            }}>Play voice</button>}
             {notice && <p role="alert" style={{ color: "#ffd291" }}>{notice}</p>}
             <div aria-live="polite">{turns.map((t, i) => <p key={i} style={{ whiteSpace: "pre-wrap", userSelect: "text" }}><strong>{t.role === "user" ? "You" : "APEX"}: </strong>{t.text}</p>)}</div>
           </section>
@@ -584,9 +596,7 @@ export default function ApexWorld() {
             onClick={() => {
               const next = !showHumanoid;
               setShowHumanoid(next);
-              if (next) {
-                processCommand("show me your face apex");
-              }
+
             }}
             title="Materialize Neural Humanoid Face"
             style={{

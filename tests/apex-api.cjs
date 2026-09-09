@@ -11,8 +11,10 @@ function load(path, requireMock, globals = {}) {
 }
 const personality = load('lib/personality.ts', require);
 const env = {};
+const originGuard = load('lib/request-origin.ts', require, {URL});
 let fishStatus = true, llmFailure = false, sent, generation;
 const api = load('app/api/apex/route.ts', name => {
+  if (name === '@/lib/request-origin') return originGuard;
   if (name === '@/lib/personality') return personality;
   if (name === 'next/server') return {NextResponse:{json:(body,options)=>({body,status:options?.status||200})}};
   if (name === '@google/genai') return {GoogleGenAI:class { models={generateContent:async args=>{ generation=args; if(llmFailure) throw Error(); return {text:'Here is your draft.'}; }}; }};
@@ -20,6 +22,14 @@ const api = load('app/api/apex/route.ts', name => {
 }, {process:{env},Buffer,AbortSignal, fetch:async (url, options)=>{sent={url,...options};return {ok:fishStatus,arrayBuffer:async()=>Buffer.from('mock mp3')}}});
 function req(body, origin='http://localhost:3000') {return {headers:new Headers({origin}),nextUrl:new URL('http://localhost:3000/api/apex'),text:async()=>JSON.stringify(body)}}
 (async()=>{
+  const internal = new URL('http://0.0.0.0:3000/api/apex');
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'http://localhost:3000',host:'localhost:3000'}),internal),true);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'http://127.0.0.1:3000',host:'127.0.0.1:3000'}),internal),true);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'https://evil.example',host:'localhost:3000'}),internal),false);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'http://localhost:4000',host:'localhost:3000'}),internal),false);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'null',host:'localhost:3000'}),internal),false);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'https://apex.example',host:'internal:3000'}),internal,'https://apex.example'),true);
+
   assert.equal((await api.POST(req({prompt:''}))).status,400);
   assert.equal((await api.POST(req({prompt:'hello'},'https://other.example'))).status,403);
   assert.equal((await api.POST(req({prompt:'hello'}))).status,503);
