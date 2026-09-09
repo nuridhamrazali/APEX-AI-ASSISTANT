@@ -1,3 +1,35 @@
+# APEX voice and personality setup
+
+This branch connects the HUD to Gemini conversation and Fish Audio speech using voice
+`e6b437b389c34041856d56d3cde1f494`.
+
+1. Copy `.env.example` to `.env.local` and enter `GEMINI_API_KEY` and `FISH_AUDIO_API_KEY`.
+2. Set `GEMINI_MODEL` to a model available to your account if the example is unavailable.
+3. Run `npm install`, then `npm run dev`.
+4. Open the chat button to choose balanced, focused or conversational personality.
+5. Choose English or Bahasa Melayu before enabling the microphone. Tap the orb and say
+   “Apex” followed by your request. Tap again or use Stop to interrupt.
+
+The browser must support SpeechRecognition, with microphone permission on localhost or HTTPS.
+Recognition uses the browser's speech service; it is not an offline wake-word detector.
+Recent conversation (up to 12 messages) stays in tab memory and clears on refresh or Clear conversation.
+Fish failures show the text reply and an error; no substitute voice is used. MP3 playback
+starts after the audio response arrives, not as a streamed response.
+
+Keys belong only in the server environment, never in NEXT_PUBLIC variables or Git.
+Use a private/local instance or deployment access protection: this project does not yet
+include user authentication or a durable quota limiter for public usage.
+
+This is the conversation/voice foundation. Hermes Agent, autonomous execution, persistent
+memory, Gmail, calendar and the other pictured integrations are not connected. The previous
+hard-coded Antigravity call has been replaced by documented Gemini text generation; no
+remote execution is claimed. Face controls remain local UI actions.
+
+API references: [Fish Audio TTS](https://docs.fish.audio/api-reference/endpoint/openapi-v1/text-to-speech),
+[Gemini generation](https://ai.google.dev/gemini-api/docs/generate-content/text-generation).
+
+---
+
 # APEX-UI
 
 An animated **autonomous-agent orb + reasoning-graph** interface — the front-end of
