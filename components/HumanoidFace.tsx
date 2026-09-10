@@ -74,7 +74,7 @@ function buildFigure() {
   for(let y=40;y<890;y+=2) for(let x=4;x<696;x+=2) {
     const p=(y*700+x)*4;
     if(pixels[p+3]<35) continue;
-    particles.push({x,y,angle:rand()*Math.PI*2,radius:260+rand()*350,delay:rand()*.28,color:`rgb(${pixels[p]},${pixels[p+1]},${pixels[p+2]})`,size:.55+rand()*.7});
+    particles.push({x,y,angle:rand()*Math.PI*2,radius:260+rand()*350,delay:.10+(1-Math.min(1,(y-40)/850))*.34+(x/700)*.12+rand()*.08,color:`rgb(${pixels[p]},${pixels[p+1]},${pixels[p+2]})`,size:.55+rand()*.7});
   }
   return { particles, contours:c };
 }
@@ -111,31 +111,58 @@ export default function HumanoidFace({ onComplete, state="idle" }: {onComplete?:
         ctx.strokeStyle=`rgba(48,177,216,${active==="listening"?.14:.055})`;ctx.lineWidth=.65;ctx.stroke();
       }
       ctx.globalCompositeOperation="lighter";
-      // Visible spiral streams contract while data settles onto its final contours.
+      // Chest ignition feeds a rising helix; lower/left contours settle first.
+      // Each particle has its own launch time so the figure is built, not faded in.
       for(const p of particles){
-        const u=Math.max(0,Math.min(1,(progress-p.delay)/(1-p.delay)));
+        const u=Math.max(0,Math.min(1,(progress-p.delay)/.34));
+        if(u===0) continue;
         const blend=u*u*(3-2*u);
-        const angle=p.radius*.012+Math.floor(p.angle/(Math.PI*2/3))*(Math.PI*2/3)+p.delay*.8+motion*2.4+(1-blend)*4;
-        const r=p.radius*(1-blend*.8);
-        const sx=350+Math.cos(angle)*r,sy=410+Math.sin(angle)*r*.63;
+        const sweep=Math.sin(Math.PI*u);
+        const angle=p.angle*.12+u*Math.PI*2.3;
+        const radius=sweep*(85+p.radius*.19);
         const jitter=progress===1&&!reduced.matches?Math.sin(motion*2+p.angle)*.45:0;
-        const x=sx+(p.x-sx)*blend+jitter,y=sy+(p.y-sy)*blend;
-        ctx.globalAlpha=.48+blend*.43;ctx.fillStyle=p.color;ctx.fillRect(x,y,p.size,p.size);
+        const x=350+(p.x-350)*blend+Math.sin(angle)*radius+jitter;
+        const y=790+(p.y-790)*blend+Math.cos(angle)*radius*.28;
+        ctx.globalAlpha=Math.min(1,u*8)*(.45+blend*.46);
+        ctx.fillStyle=p.color;ctx.fillRect(x,y,p.size,p.size);
       }
-      if(progress>.86){
-        ctx.globalAlpha=(progress-.86)/.14*.8;ctx.filter="blur(4px)";ctx.drawImage(contours,0,0);
-        ctx.filter="none";ctx.globalAlpha=(progress-.86)/.14*.55;ctx.drawImage(contours,0,0);
+      // A narrow ribbon curls up from the emitter ahead of the assembled surface.
+      if(progress<1){
+        const fade=Math.min(1,progress*9)*Math.min(1,(1-progress)*6);
+        for(let i=0;i<420;i++){
+          const q=i/419;
+          const rise=Math.max(0,Math.min(1,(progress-.08)/.72));
+          const angle=q*Math.PI*3.4-motion*3;
+          const radius=Math.sin(q*Math.PI)*150;
+          const x=350+Math.sin(angle)*radius;
+          const y=790-q*720*rise+Math.cos(angle)*radius*.18;
+          ctx.globalAlpha=fade*(1-q)*.5;
+          ctx.fillStyle=i%5===0?"#ccfaff":"#36ccff";
+          ctx.fillRect(x,y,1.5,1.5);
+        }
+        const ignition=Math.min(1,progress*12)*Math.min(1,(1-progress)*5);
+        const core=ctx.createRadialGradient(350,790,0,350,790,48);
+        core.addColorStop(0,"#e4fcff");core.addColorStop(.12,"#6fe5ff");
+        core.addColorStop(.35,"#009beccc");core.addColorStop(1,"#0088ee00");
+        ctx.globalAlpha=ignition;ctx.fillStyle=core;ctx.fillRect(302,742,96,96);
+      }
+      // Reveal sharp contours behind a bottom-to-top construction front.
+      if(progress>.3){
+        const reveal=Math.max(0,Math.min(1,(progress-.3)/.7));
+        ctx.save();ctx.beginPath();ctx.rect(0,900*(1-reveal),700,900*reveal);ctx.clip();
+        ctx.globalAlpha=reveal*.8;ctx.filter="blur(4px)";ctx.drawImage(contours,0,0);
+        ctx.filter="none";ctx.globalAlpha=reveal*.55;ctx.drawImage(contours,0,0);ctx.restore();
       }
       ctx.globalAlpha=1;
       // Cyan visor energy follows processing and speech.
       const energy=active==="speaking"?.7+Math.sin(motion*12)*.2:active==="thinking"?.6+Math.sin(motion*6)*.2:.26;
       const glow=ctx.createRadialGradient(350,388,2,350,388,86);
-      glow.addColorStop(0,`rgba(45,191,255,${energy*progress})`);glow.addColorStop(1,"rgba(20,120,255,0)");
+      glow.addColorStop(0,`rgba(45,191,255,${energy*Math.max(0,(progress-.65)/.35)})`);glow.addColorStop(1,"rgba(20,120,255,0)");
       ctx.fillStyle=glow;ctx.fillRect(264,302,172,172);
       // Scattered data points continue orbiting the assembled silhouette.
       for(let i=0;i<110;i++){
         const a=i*2.399+motion*.14,r=185+(i%11)*17;
-        ctx.fillStyle=i%9===0?"#d0914b":"#3997b1";ctx.globalAlpha=.2+(i%4)*.1;
+        ctx.fillStyle=i%9===0?"#d0914b":"#3997b1";ctx.globalAlpha=(.2+(i%4)*.1)*Math.max(0,(progress-.7)/.3);
         ctx.fillRect(350+Math.cos(a)*r,380+Math.sin(a)*r*1.25,1.1,1.1);
       }
       ctx.restore();raf=requestAnimationFrame(render);
@@ -147,7 +174,7 @@ export default function HumanoidFace({ onComplete, state="idle" }: {onComplete?:
   const label=state==="thinking"?"PROCESSING":state==="speaking"?"SPEAKING":state==="listening"?"LISTENING":"STANDBY";
   const buttonStyle={display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#071922cc",border:"1px solid #235365",borderRadius:8,color:"#b4eaf4",cursor:"pointer",fontSize:11,letterSpacing:1};
   return <div role="region" aria-label="APEX particle avatar" style={{position:"fixed",inset:0,background:"#010508",color:"#a6dbe8",fontFamily:"var(--font-mono, monospace)"}}>
-    <canvas ref={canvasRef} aria-label="Cyan particle humanoid with cyberpunk shield mask, forming from a spiral" style={{width:"100%",height:"100%"}} />
+    <canvas ref={canvasRef} aria-label="Cyan particle humanoid with cyberpunk shield mask, assembling from a chest light and rising particle stream" style={{width:"100%",height:"100%"}} />
     <div style={{position:"absolute",top:25,left:25,fontSize:11,letterSpacing:3}}>A P E X <span style={{display:"block",fontSize:9,opacity:.45,marginTop:9}}>NEURAL PROJECTION</span>
       <div role="status" aria-live="polite" style={{marginTop:18,letterSpacing:2,color:state==="listening"?"#8af4db":state==="thinking"?"#ffd291":"#83d5e9"}}>● {label}</div>
       {!formed && <span style={{display:"block",marginTop:8,fontSize:9,opacity:.65}}>MATERIALIZING</span>}
