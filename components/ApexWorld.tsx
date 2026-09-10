@@ -12,7 +12,7 @@
 
 import { PERSONALITIES, type Personality, type Turn } from "@/lib/personality";
 import { useEffect, useRef, useState } from "react";
-import { MessageSquare, X, Send, Eye, Sparkles } from "lucide-react";
+import { MessageSquare, X, Send, Eye, Sparkles, Mic, Square } from "lucide-react";
 import ApexHeroOrb, { type OrbState } from "./ApexHeroOrb";
 import ReasoningWebJs from "./ReasoningWeb";
 import ShaderBackgroundJs from "./ShaderBackground";
@@ -531,14 +531,14 @@ export default function ApexWorld() {
       <OrbStatusBar state={orbState} />
 
       {/* Chat and Action Controls */}
-      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 70, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
         {chatOpen && (
           <section aria-label="APEX conversation" style={{ width: "min(360px, 88vw)", maxHeight: "50vh", overflowY: "auto", padding: 16, borderRadius: 16, background: "rgba(4,8,15,.95)", color: "#d5eaf4", border: "1px solid #176079", fontSize: 13 }}>
             <label>Personality <select aria-label="Personality" value={personality} onChange={e => { const mode = e.target.value as Personality; personalityRef.current = mode; setPersonality(mode); }}>
               {Object.keys(PERSONALITIES).map(mode => <option key={mode} value={mode}>{mode}</option>)}
             </select></label>
             <label style={{ display: "block", marginTop: 8 }}>Voice input <select aria-label="Voice input language" value={language} disabled={isAwake} onChange={e => setLanguage(e.target.value)}><option value="en-US">English</option><option value="ms-MY">Bahasa Melayu</option></select></label>
-            <p>Tap the orb, then say “Apex” followed by your request. Tap again to stop.</p>
+            <p>Tap Start listening, then say “Apex” followed by your request. Voice and typed tasks work in both views.</p>
             <p style={{ opacity: .65 }}>Hermes Agent · Obsidian conversation memory</p>
             <button type="button" onClick={stop}>Stop</button>{" "}
             <button type="button" onClick={() => { stop(); historyRef.current = []; setTurns([]); setLastAudio(null); setNotice(""); }}>Clear screen</button>
@@ -601,7 +601,17 @@ export default function ApexWorld() {
             </button>
           </form>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", maxWidth: "90vw", gap: 10 }}>
+          <button
+            type="button"
+            onClick={boost}
+            aria-label={isAwake || orbState !== "idle" ? "Stop listening and current task" : "Start listening"}
+            title={isAwake || orbState !== "idle" ? "Stop listening and current task" : "Start listening — say Apex followed by your request"}
+            style={{ display: "flex", alignItems: "center", gap: 6, height: 48, padding: "0 12px", borderRadius: 24, background: "#071922ee", border: "1px solid #23768b", color: isAwake ? "#8af4db" : "#b4eaf4", cursor: "pointer", fontSize: 11 }}
+          >
+            {isAwake || orbState !== "idle" ? <Square size={16} /> : <Mic size={16} />}
+            <span>{isAwake || orbState !== "idle" ? "STOP" : "LISTEN"}</span>
+          </button>
           <button 
             onClick={() => {
               const next = !showHumanoid;

@@ -144,12 +144,14 @@ export default function HumanoidFace({ onComplete, state="idle" }: {onComplete?:
     return()=>{cancelAnimationFrame(raf);removeEventListener("resize",resize);};
   },[]);
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==="Escape")onComplete?.();};addEventListener("keydown",key);return()=>removeEventListener("keydown",key);},[onComplete]);
-  const label=!formed?"MATERIALIZING":state==="thinking"?"PROCESSING":state==="speaking"?"SPEAKING":state==="listening"?"LISTENING":"STANDBY";
+  const label=state==="thinking"?"PROCESSING":state==="speaking"?"SPEAKING":state==="listening"?"LISTENING":"STANDBY";
   const buttonStyle={display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#071922cc",border:"1px solid #235365",borderRadius:8,color:"#b4eaf4",cursor:"pointer",fontSize:11,letterSpacing:1};
-  return <div role="dialog" aria-label="APEX particle avatar" style={{position:"fixed",inset:0,background:"#010508",color:"#a6dbe8",fontFamily:"var(--font-mono, monospace)"}}>
+  return <div role="region" aria-label="APEX particle avatar" style={{position:"fixed",inset:0,background:"#010508",color:"#a6dbe8",fontFamily:"var(--font-mono, monospace)"}}>
     <canvas ref={canvasRef} aria-label="Cyan particle humanoid with cyberpunk shield mask, forming from a spiral" style={{width:"100%",height:"100%"}} />
-    <div style={{position:"absolute",top:25,left:25,fontSize:11,letterSpacing:3}}>A P E X <span style={{display:"block",fontSize:9,opacity:.45,marginTop:9}}>NEURAL PROJECTION</span></div>
+    <div style={{position:"absolute",top:25,left:25,fontSize:11,letterSpacing:3}}>A P E X <span style={{display:"block",fontSize:9,opacity:.45,marginTop:9}}>NEURAL PROJECTION</span>
+      <div role="status" aria-live="polite" style={{marginTop:18,letterSpacing:2,color:state==="listening"?"#8af4db":state==="thinking"?"#ffd291":"#83d5e9"}}>● {label}</div>
+      {!formed && <span style={{display:"block",marginTop:8,fontSize:9,opacity:.65}}>MATERIALIZING</span>}
+    </div>
     <button autoFocus onClick={onComplete} style={{...buttonStyle,position:"absolute",top:20,right:20}}><X size={14}/>RETURN TO ORB</button>
-    <div role="status" style={{position:"absolute",bottom:28,left:0,right:0,textAlign:"center",fontSize:11,letterSpacing:3,color:formed?"#83d5e9":"#efb46d"}}>STATUS : {label}</div>
   </div>;
 }
