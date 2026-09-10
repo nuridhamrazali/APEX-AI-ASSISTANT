@@ -1,0 +1,59 @@
+// Contract tests with mocked paid providers; no API keys or network needed.
+const {readFileSync} = require('node:fs');
+const vm = require('node:vm');
+const ts = require('typescript');
+const assert = require('node:assert/strict');
+function load(path, requireMock, globals = {}) {
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(readFileSync(path, 'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,
+    {exports,require:requireMock,...globals});
+  return exports;
+}
+const personality = load('lib/personality.ts', require);
+const env = {};
+let harnessFail = false;
+const originGuard = load('lib/request-origin.ts', require, {URL});
+let fishStatus = true, llmFailure = false, sent, generation;
+const resolve = name => {
+  if (name === '@/lib/hermes') return {runHermes:async(prompt,history,system)=>{ if(harnessFail) throw Error('Hermes unavailable'); generation={system,history}; return {text:'Here is your draft.',harness:'hermes',memorySaved:true,memoryNote:'test.md'}; }};
+  if (name === '@/lib/request-origin') return originGuard;
+  if (name === '@/lib/personality') return personality;
+  if (name === 'next/server') return {NextResponse:{json:(body,options)=>({body,status:options?.status||200})}};
+  if (name === '@google/genai') return {GoogleGenAI:class { models={generateContent:async args=>{ generation=args; if(llmFailure) throw Error(); return {text:'Here is your draft.'}; }}; }};
+  throw Error(name);
+};
+const globals = {process:{env},Buffer,AbortSignal, fetch:async (url, options)=>{sent={url,...options};return {ok:fishStatus,arrayBuffer:async()=>Buffer.from('mock mp3')}}};
+const api = load('app/api/apex/route.ts', resolve, globals);
+const voice = load('app/api/voice/route.ts', resolve, globals);
+function req(body, origin='http://localhost:3000') {return {headers:new Headers({origin}),nextUrl:new URL('http://localhost:3000/api/apex'),text:async()=>JSON.stringify(body),json:async()=>body,signal:new AbortController().signal}}
+(async()=>{
+  const internal = new URL('http://0.0.0.0:3000/api/apex');
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'http://localhost:3000',host:'localhost:3000'}),internal),true);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'http://127.0.0.1:3000',host:'127.0.0.1:3000'}),internal),true);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'https://evil.example',host:'localhost:3000'}),internal),false);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'http://localhost:4000',host:'localhost:3000'}),internal),false);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'null',host:'localhost:3000'}),internal),false);
+  assert.equal(originGuard.allowedOrigin(new Headers({origin:'https://apex.example',host:'internal:3000'}),internal,'https://apex.example'),true);
+
+  assert.equal((await api.POST(req({prompt:''}))).status,400);
+  assert.equal((await api.POST(req({prompt:'hello'},'https://other.example'))).status,403);
+  harnessFail=true; assert.equal((await api.POST(req({prompt:'hello'}))).status,502); harnessFail=false;
+  env.GEMINI_API_KEY='test';
+  let r=await api.POST(req({prompt:'hello',personality:'focused',history:[{role:'assistant',text:'Earlier response'}]}));
+  assert.equal(r.body.text,'Here is your draft.');assert.equal(r.body.audioBase64,undefined);
+  assert.ok(generation.system.includes('Skip jokes'));
+  assert.equal(generation.history[0].role,'assistant');
+  assert.equal(r.body.memorySaved,true);
+  env.FISH_AUDIO_API_KEY='test';
+  r=await voice.POST(req({text:'hello'}));
+  assert.equal(r.body.audioMimeType,'audio/mpeg');assert.ok(r.body.audioBase64);
+  assert.equal(JSON.parse(sent.body).reference_id,'e6b437b389c34041856d56d3cde1f494');
+  assert.equal(sent.headers.Authorization,'Bearer test');
+  assert.equal(JSON.parse(sent.body).prosody.speed,1.15);
+  env.FISH_AUDIO_SPEED='9'; await voice.POST(req({text:'hello'})); assert.equal(JSON.parse(sent.body).prosody.speed,2);
+  env.FISH_AUDIO_SPEED='oops'; await voice.POST(req({text:'hello'})); assert.equal(JSON.parse(sent.body).prosody.speed,1.15);
+  fishStatus=false;r=await voice.POST(req({text:'hello'}));assert.ok(r.body.voiceError);
+  harnessFail=true;assert.equal((await api.POST(req({prompt:'hello'}))).status,502);
+  assert.ok(!personality.spokenText('```js\nrun()\n```').includes('executed'));
+  console.log('Passed: validation, origin, missing credentials, history/personality, Fish voice/MIME, provider failures, honest code narration.');
+})().catch(e=>{console.error(e);process.exitCode=1});

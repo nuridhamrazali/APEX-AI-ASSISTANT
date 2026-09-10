@@ -1,3 +1,24 @@
+# APEX with Hermes and Obsidian
+
+Follow **[HERMES-SETUP.md](./HERMES-SETUP.md)** for the complete Windows setup.
+
+- Hermes Agent runs the tool loop through its Python AIAgent runtime.
+- Gemini is the default model provider; Fish Audio uses the selected voice.
+- Every new turn reaching the bridge is archived in an Obsidian vault.
+- Keyword recall and an Obsidian search tool retrieve saved conversation excerpts.
+- The HUD includes personality modes, English/Malay microphone input and a particle avatar.
+
+Put .env.local beside package.json. The Python environment must be installed before
+sending messages. This integration runs locally, not on serverless hosting. Only the
+Obsidian search tool is enabled; other external task integrations are not configured.
+
+Tests: npm run build; node tests/apex-api.cjs; python -m unittest discover -s tests.
+Live model/voice calls and Windows runtime installation still need local validation.
+
+---
+
+Original UI documentation and attribution:
+
 # APEX-UI
 
 An animated **autonomous-agent orb + reasoning-graph** interface — the front-end of

@@ -10,8 +10,9 @@
  * orb's tap cycle drives the whole web (standby → processing → speaking).
  */
 
+import { PERSONALITIES, type Personality, type Turn } from "@/lib/personality";
 import { useEffect, useRef, useState } from "react";
-import { MessageSquare, X, Send, Eye, Sparkles } from "lucide-react";
+import { MessageSquare, X, Send, Eye, Sparkles, Mic, Square } from "lucide-react";
 import ApexHeroOrb, { type OrbState } from "./ApexHeroOrb";
 import ReasoningWebJs from "./ReasoningWeb";
 import ShaderBackgroundJs from "./ShaderBackground";
@@ -108,15 +109,15 @@ export const INFO: Record<string, AgentInfo> = {
   calendar: { role: "Schedule sense", status: "integration",
     caps: ["Knows the calendar", "Reminders and follow-up timing"] },
   email: { role: "Inbox hands", status: "integration",
-    caps: ["Inbox triage and reply drafts", "Connected and in use"] },
+    caps: ["Inbox triage and reply drafts", "Not connected yet"] },
   drive: { role: "File access", status: "integration",
-    caps: ["Reads and files documents", "Connected and in use"] },
+    caps: ["Reads and files documents", "Not connected yet"] },
 };
 
 const STATUS_LINE: Record<AgentInfo["status"], { color: string; text: string }> = {
-  online: { color: "#34d399", text: "Online - Apex routes work to it automatically" },
+  online: { color: "#34d399", text: "Planned capability - not connected" },
   standby: { color: "#c9a84c", text: "Standby - in active development" },
-  integration: { color: "#7f9bb3", text: "Integration - wired into the core" },
+  integration: { color: "#7f9bb3", text: "Integration - not connected" },
 };
 
 /* ── AGENT OVERVIEW window - the site's template (the app opens live cockpits) ── */
@@ -252,18 +253,43 @@ export default function ApexWorld() {
   const [chatInput, setChatInput] = useState("");
   const [showHumanoid, setShowHumanoid] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const [personality, setPersonality] = useState<Personality>("balanced");
+  const personalityRef = useRef<Personality>("balanced");
+  const [language, setLanguage] = useState("en-US");
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const historyRef = useRef<Turn[]>([]);
+  const [notice, setNotice] = useState("");
+  const busyRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [lastAudio, setLastAudio] = useState<string | null>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const finish = () => {
+    busyRef.current = false;
+    audioRef.current = null;
+    const state = isAwakeRef.current ? "listening" : "idle";
+    showStateRef.current = state;
+    setShowState(state);
+    if (isAwakeRef.current) { try { recognitionRef.current?.start(); } catch {} }
+  };
+  const stop = () => {
+    isAwakeRef.current = false;
+    setIsAwake(false);
+    requestRef.current?.abort();
+    if (audioRef.current) { audioRef.current.onended = null; audioRef.current.pause(); }
+    try { recognitionRef.current?.abort(); } catch {}
+    finish();
+  };
+  useEffect(() => () => {
+    requestRef.current?.abort();
+    audioRef.current?.pause();
+  }, []);
 
   const boost = () => {
-    if (!isAwake) {
-      setIsAwake(true);
-      setShowState("listening");
-    } else {
-      setIsAwake(false);
-      setShowState("idle");
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
-      }
-    }
+    if (isAwakeRef.current || busyRef.current) { stop(); return; }
+    isAwakeRef.current = true;
+    showStateRef.current = "listening";
+    setIsAwake(true);
+    setShowState("listening");
   };
 
   const isFaceCommand = (text: string) => {
@@ -293,66 +319,56 @@ export default function ApexWorld() {
   };
 
   const processCommand = async (transcript: string) => {
-    const isFace = isFaceCommand(transcript);
-    const isDismiss = isDismissFaceCommand(transcript);
-
-    if (isFace) {
-      setShowHumanoid(true);
-    } else if (isDismiss) {
-      setShowHumanoid(false);
-    }
-
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setNotice("");
+    if (isDismissFaceCommand(transcript)) setShowHumanoid(false);
+    else if (isFaceCommand(transcript)) setShowHumanoid(true);
+    showStateRef.current = "thinking";
     setShowState("thinking");
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
-    }
-    
+    try { recognitionRef.current?.stop(); } catch {}
+    const history = historyRef.current;
+    const pending: Turn[] = [...history, { role: "user", text: transcript }];
+    setTurns(pending);
+    setChatOpen(true);
+    const controller = new AbortController();
+    requestRef.current = controller;
     try {
       const res = await fetch('/api/apex', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: transcript })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: transcript, history, personality: personalityRef.current }),
+        signal: controller.signal,
       });
-      
       const data = await res.json();
-      if (data.error && !data.text) throw new Error(data.error);
-
-      if (data.audioBase64) {
-        setShowState("speaking");
-        const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
-        audio.onended = () => {
-          if (isAwakeRef.current) {
-            setShowState("listening");
-            try { recognitionRef.current?.start(); } catch(e) {}
-          } else {
-            setShowState("idle");
-          }
-        };
-        audio.play().catch((e) => {
-          console.error("Audio playback failed", e);
-          if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
-        });
-      } else if (data.text) {
-        setShowState("speaking");
-        const msg = new SpeechSynthesisUtterance(data.text);
-        msg.onend = () => {
-          if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
-        };
-        window.speechSynthesis.speak(msg);
-      } else {
-        if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
+      if (controller.signal.aborted) return;
+      if (!res.ok || data.error) throw new Error(data.error || "Request failed.");
+      if (data.text) {
+        historyRef.current = [...pending, { role: "assistant" as const, text: data.text }].slice(-12);
+        setTurns(historyRef.current);
       }
-    } catch (err: any) {
-      console.error("APEX Error:", err);
-      setShowState("speaking");
-      const text = isFace 
-        ? "Initiating visual projection matrix now, sir. Neural humanoid interface online." 
-        : (err.message || "I'm sorry sir, I am experiencing a temporary system failure.");
-      const msg = new SpeechSynthesisUtterance(text);
-      msg.onend = () => {
-        if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
-      };
-      window.speechSynthesis.speak(msg);
+      if (data.memorySaved) setNotice("Conversation saved to Obsidian. Clear screen keeps saved notes.");
+      setNotice("Reply ready. Preparing voice…");
+      const voiceResponse = await fetch('/api/voice', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: data.text }), signal: controller.signal,
+      });
+      const voice = await voiceResponse.json();
+      if (controller.signal.aborted) return;
+      if (!voiceResponse.ok) throw new Error(voice.error || "Voice request failed.");
+      Object.assign(data, voice);
+      setNotice(data.voiceError || (data.memorySaved ? "Saved to Obsidian." : ""));
+      if (!data.audioBase64) { finish(); return; }
+      const audio = new Audio(`data:${data.audioMimeType || "audio/mpeg"};base64,${data.audioBase64}`);
+      setLastAudio(audio.src);
+      audioRef.current = audio;
+      audio.onplaying = () => { if (controller.signal.aborted) { audio.pause(); return; } showStateRef.current = "speaking"; setShowState("speaking"); };
+      audio.onended = finish;
+      audio.onerror = () => { setNotice("Audio playback failed. Read the reply below."); finish(); };
+      try { await audio.play(); } catch { if (controller.signal.aborted) return; setNotice("Browser blocked automatic playback. Press Play voice below."); finish(); }
+    } catch (err: unknown) {
+      if (controller.signal.aborted) return;
+      setNotice(err instanceof Error ? err.message : "APEX could not process that request.");
+      finish();
     }
   };
 
@@ -361,7 +377,7 @@ export default function ApexWorld() {
     if (!chatInput.trim()) return;
     processCommand(chatInput.trim());
     setChatInput("");
-    setChatOpen(false);
+    setChatOpen(true);
   };
 
   useEffect(() => {
@@ -369,27 +385,31 @@ export default function ApexWorld() {
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Speech Recognition is not supported in this browser.");
+      setNotice("Voice input is unavailable in this browser. Use the message box.");
+      setChatOpen(true);
+      stop();
       return;
     }
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
-    recognition.lang = 'en-US';
+    recognition.lang = language;
     recognition.continuous = true;
     recognition.interimResults = false;
     
     recognition.onresult = async (event: any) => {
       const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
       const hasWakeWord = transcript.includes("apex");
-      if (hasWakeWord) {
+      if (hasWakeWord && !busyRef.current) {
         processCommand(transcript);
       }
     };
 
     recognition.onerror = (event: any) => {
       if (event.error !== "no-speech" && event.error !== "aborted") {
-        console.error("Speech Recognition Error:", event.error);
+        setNotice("Microphone unavailable: " + event.error + ". You can type instead.");
+        setChatOpen(true);
+        stop();
       }
     };
 
@@ -404,7 +424,7 @@ export default function ApexWorld() {
     return () => {
       try { recognition.stop(); } catch (e) {}
     };
-  }, [isAwake]);
+  }, [isAwake, language]);
 
   useEffect(() => () => { if (showTimer.current) clearTimeout(showTimer.current); }, []);
 
@@ -444,7 +464,7 @@ export default function ApexWorld() {
 
       {showHumanoid && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60 }}>
-          <HumanoidFace onComplete={() => setShowHumanoid(false)} />
+          <HumanoidFace state={orbState} onComplete={() => setShowHumanoid(false)} />
         </div>
       )}
 
@@ -496,7 +516,7 @@ export default function ApexWorld() {
       <div
         role="button"
         tabIndex={0}
-        aria-label="Apex core - tap to energize"
+        aria-label={isAwake || busyRef.current ? "Stop APEX" : "Start listening for Apex"}
         onClick={boost}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); boost(); } }}
         onMouseDown={(e) => e.preventDefault()}
@@ -511,7 +531,31 @@ export default function ApexWorld() {
       <OrbStatusBar state={orbState} />
 
       {/* Chat and Action Controls */}
-      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 70, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+        {chatOpen && (
+          <section aria-label="APEX conversation" style={{ width: "min(360px, 88vw)", maxHeight: "50vh", overflowY: "auto", padding: 16, borderRadius: 16, background: "rgba(4,8,15,.95)", color: "#d5eaf4", border: "1px solid #176079", fontSize: 13 }}>
+            <label>Personality <select aria-label="Personality" value={personality} onChange={e => { const mode = e.target.value as Personality; personalityRef.current = mode; setPersonality(mode); }}>
+              {Object.keys(PERSONALITIES).map(mode => <option key={mode} value={mode}>{mode}</option>)}
+            </select></label>
+            <label style={{ display: "block", marginTop: 8 }}>Voice input <select aria-label="Voice input language" value={language} disabled={isAwake} onChange={e => setLanguage(e.target.value)}><option value="en-US">English</option><option value="ms-MY">Bahasa Melayu</option></select></label>
+            <p>Tap Start listening, then say “Apex” followed by your request. Voice and typed tasks work in both views.</p>
+            <p style={{ opacity: .65 }}>Hermes Agent · Obsidian conversation memory</p>
+            <button type="button" onClick={stop}>Stop</button>{" "}
+            <button type="button" onClick={() => { stop(); historyRef.current = []; setTurns([]); setLastAudio(null); setNotice(""); }}>Clear screen</button>
+            {lastAudio && <button type="button" onClick={() => {
+              if (busyRef.current) return;
+              busyRef.current = true;
+              showStateRef.current = "speaking"; setShowState("speaking");
+              try { recognitionRef.current?.stop(); } catch {}
+              const audio = new Audio(lastAudio); audioRef.current = audio;
+              audio.onended = finish;
+              audio.onerror = () => { setNotice("Playback failed. Check your audio output device."); finish(); };
+              audio.play().catch(() => { setNotice("Playback failed. Check your browser sound permissions."); finish(); });
+            }}>Play voice</button>}
+            {notice && <p role="alert" style={{ color: "#ffd291" }}>{notice}</p>}
+            <div aria-live="polite">{turns.map((t, i) => <p key={i} style={{ whiteSpace: "pre-wrap", userSelect: "text" }}><strong>{t.role === "user" ? "You" : "APEX"}: </strong>{t.text}</p>)}</div>
+          </section>
+        )}
         {chatOpen && (
           <form onSubmit={handleChatSubmit} style={{ 
             display: "flex", 
@@ -524,6 +568,9 @@ export default function ApexWorld() {
             boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
           }}>
             <input 
+              aria-label="Message APEX"
+              maxLength={6000}
+              disabled={orbState === "thinking" || orbState === "speaking"}
               type="text" 
               value={chatInput} 
               onChange={(e) => setChatInput(e.target.value)} 
@@ -540,7 +587,7 @@ export default function ApexWorld() {
                 padding: "8px 0"
               }}
             />
-            <button type="submit" style={{
+            <button type="submit" aria-label="Send message" disabled={orbState === "thinking" || orbState === "speaking"} style={{
               background: "transparent",
               border: "none",
               color: "rgba(13,210,255,0.8)",
@@ -554,14 +601,22 @@ export default function ApexWorld() {
             </button>
           </form>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", maxWidth: "90vw", gap: 10 }}>
+          <button
+            type="button"
+            onClick={boost}
+            aria-label={isAwake || orbState !== "idle" ? "Stop listening and current task" : "Start listening"}
+            title={isAwake || orbState !== "idle" ? "Stop listening and current task" : "Start listening — say Apex followed by your request"}
+            style={{ display: "flex", alignItems: "center", gap: 6, height: 48, padding: "0 12px", borderRadius: 24, background: "#071922ee", border: "1px solid #23768b", color: isAwake ? "#8af4db" : "#b4eaf4", cursor: "pointer", fontSize: 11 }}
+          >
+            {isAwake || orbState !== "idle" ? <Square size={16} /> : <Mic size={16} />}
+            <span>{isAwake || orbState !== "idle" ? "STOP" : "LISTEN"}</span>
+          </button>
           <button 
             onClick={() => {
               const next = !showHumanoid;
               setShowHumanoid(next);
-              if (next) {
-                processCommand("show me your face apex");
-              }
+
             }}
             title="Materialize Neural Humanoid Face"
             style={{
@@ -589,6 +644,7 @@ export default function ApexWorld() {
           </button>
 
           <button 
+            aria-label="Toggle conversation"
             onClick={() => setChatOpen(!chatOpen)}
             style={{
               width: 48,
