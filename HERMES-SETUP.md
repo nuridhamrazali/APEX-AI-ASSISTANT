@@ -1,7 +1,7 @@
 # APEX: Hermes harness + Obsidian memory (Windows)
 
 The web app runs Nous Research's actual `AIAgent` Python library in a reusable worker.
-Hermes controls its reasoning/tool loop. Gemini is the default model provider, Fish
+Hermes controls its reasoning/tool loop. For local replies without Gemini quota, follow [OLLAMA-SETUP.md](OLLAMA-SETUP.md). The cloud setup below uses Gemini; Fish
 Audio speaks, and Obsidian opens the saved conversation Markdown files.
 
 ## 1. Update APEX

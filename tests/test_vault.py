@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'bridge'))
 from vault import Vault
-from hermes_runner import run
+from hermes_runner import run, model_config
 
 class VaultTests(unittest.TestCase):
     def test_persistence_recall_edit_delete(self):
@@ -25,6 +25,12 @@ class VaultTests(unittest.TestCase):
             note.unlink()
             self.assertEqual(fresh.search('Green'), [])
 
+    def test_legacy_cloud_configuration(self):
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'fake'}, clear=True):
+            self.assertEqual(model_config()['api_key'], 'fake')
+        with patch.dict(os.environ, {'APEX_MODEL_PROVIDER': 'ollama'}, clear=True):
+            self.assertEqual(model_config()['api_key'], 'ollama')
+
     def test_bridge_uses_harness_and_saves(self):
         with tempfile.TemporaryDirectory() as root:
             Path(root, 'run_agent.py').touch()
@@ -36,9 +42,12 @@ class VaultTests(unittest.TestCase):
                     return {'final_response': 'I remember Blue Lantern.'}
             registry = types.SimpleNamespace(register=lambda **kw: calls.update(tool=kw))
             modules = {'run_agent': types.SimpleNamespace(AIAgent=Agent), 'tools.registry': types.SimpleNamespace(registry=registry)}
-            with patch.dict(sys.modules, modules), patch.dict(os.environ, {'HERMES_SOURCE_DIR':root,'OBSIDIAN_VAULT_PATH':root,'GEMINI_API_KEY':'fake'}):
+            with patch.dict(sys.modules, modules), patch.dict(os.environ, {'HERMES_SOURCE_DIR':root,'OBSIDIAN_VAULT_PATH':root,'GEMINI_API_KEY':'old-cloud-key','HERMES_BASE_URL':'https://old-cloud.invalid','APEX_MODEL_PROVIDER':'ollama','OLLAMA_MODEL':'qwen3:4b','OLLAMA_BASE_URL':'http://127.0.0.1:11434/v1'}):
                 result = run({'prompt':'Remember Blue Lantern', 'history':[], 'system':'Be helpful.'})
                 self.assertTrue(result['memorySaved'])
+                self.assertEqual(calls['base_url'], 'http://127.0.0.1:11434/v1/')
+                self.assertEqual(calls['api_key'], 'ollama')
+                self.assertEqual(calls['model'], 'qwen3:4b')
                 self.assertEqual(calls['enabled_toolsets'], ['apex_obsidian'])
                 self.assertIn('I remember Blue Lantern.', Path(root,result['memoryNote']).read_text())
                 self.assertEqual(calls['tool']['name'], 'apex_obsidian_search')
