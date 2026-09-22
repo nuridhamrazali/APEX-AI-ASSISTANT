@@ -40,11 +40,9 @@ async function api(
 }
 export default function AssistantConsole({
   onState,
-  onFace,
   onTrace,
 }: {
   onState: (s: OrbState) => void;
-  onFace: (v: boolean) => void;
   onTrace: (helper: string) => void;
 }) {
   const [open, setOpen] = useState(true),
@@ -257,9 +255,6 @@ export default function AssistantConsole({
       terminal = false,
       run = "",
       last = 0;
-    const lower = prompt.toLowerCase();
-    if (/hide (face|humanoid)|back to orb/.test(lower)) onFace(false);
-    else if (/show.*face|materialize|show.*humanoid/.test(lower)) onFace(true);
     try {
       const r = await fetch("/api/apex", {
         method: "POST",
@@ -688,7 +683,6 @@ export default function AssistantConsole({
         <span>{status}</span>
         <button onClick={listen}>Mic</button>
         <button onClick={stop}>Stop</button>
-        <button onClick={() => onFace(true)}>Avatar</button>
         <button onClick={() => setOpen(!open)}>{open ? "Hide" : "Chat"}</button>
       </div>
     </aside>

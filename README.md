@@ -1,22 +1,17 @@
-# Personal Assistant — local memory edition
+# APEX Assistant
+APEX orb and agent map connected to streaming chat, visible tool execution, SQLite memory, voice, and reminders. The previous humanoid, its controls, and image assets have been removed.
 
-Integrated from [nuridhamrazali/APEX-AI-ASSISTANT](https://github.com/nuridhamrazali/APEX-AI-ASSISTANT). Preserves the existing HUD, orb, graph, and humanoid animation while adding streaming chat, local SQLite memory, Markdown import/export, reminders, and password sign-in.
+Default brain: OpenAI `gpt-6-astra` with `reasoning.effort: low` through the Responses API. “Light” is interpreted as low reasoning, not a separate model name. OpenAI API usage is billed and requires a server-side API key and model access. SQLite memory needs no subscription or API key. Optional Ollama supports local inference without an API subscription.
 
-**Start with [BEGINNER-GUIDE.md](BEGINNER-GUIDE.md).** Node 24 and a running Ollama model are required. No memory API key or subscription is needed.
+Read [BEGINNER-GUIDE.md](BEGINNER-GUIDE.md) for setup and deployment. See [ARCHITECTURE.md](ARCHITECTURE.md) for the event pipeline.
 
 ```sh
 npm ci
 npm run setup
-ollama pull qwen3:4b
+# Edit .env.local: add OPENAI_API_KEY. Keep the generated password and secret.
 npm run dev
 ```
 
-Open http://localhost:3000 and use APP_PASSWORD from .env.local.
+Open http://localhost:3000 and log in with the generated password. Never put the OpenAI key in browser code or a NEXT_PUBLIC variable.
 
-Production: `npm run build` then `npm start`, or use the included Docker Compose stack. Public deployment needs a persistent Node/Docker host and a reachable model service. It is not a static/serverless deployment.
-
-Model tools: current time, saved-note search, local reminder listing, and Wikipedia title/link search. Other graph nodes are retained visual categories and are marked unconnected. Saves/edits use the Memory and Reminders panels. Browser speech is available without a provider key; optional ElevenLabs output requires your own account. No arbitrary shell execution, email sending, cloud drives, autonomous coding, or push notifications are claimed.
-
-History is durable, with a bounded recent context per conversation. Memory uses lexical retrieval over the newest 200 notes. Obsidian integration is explicit Markdown import/export, not live synchronization.
-
-UI code retains the upstream MIT license and attribution in [LICENSE](LICENSE), [CREDITS.md](CREDITS.md), and [UPSTREAM-README.md](UPSTREAM-README.md). Upstream product names and branding are not covered by that code license. This is a personal derivative, not the official Reznikov Engineering service.
+Production requires Node.js 24, persistent disk, and a running reminder worker. Deployment is not a static website export. See the guide for Docker and HTTPS setup.

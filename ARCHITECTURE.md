@@ -1,30 +1,7 @@
-# Backend integration
-
-The existing Next.js HUD is preserved. AssistantConsole owns conversation controls and sends real state changes to ApexWorld. Tool events illuminate ReasoningWeb through its existing trace contract. HumanoidFace reads the current system state rather than claiming permanent processing.
-
-## Request path
-
-1. Password sign-in sets an HMAC-signed, HttpOnly, SameSite=Strict session cookie.
-2. POST /api/apex validates origin, session, payload and conversation UUID.
-3. SQLite acquires a conversation lease for the bounded request duration.
-4. The orchestrator loads recent history and matching saved notes.
-5. Ollama streams NDJSON; the provider adapter validates completion and translates output to typed application events.
-6. A bounded tool loop runs allowlisted, validated functions and returns their actual results to the model.
-7. SSE sends text/tool/run events to the HUD. Abort signals flow upstream.
-8. The final successful answer is stored. Partial answers from failed runs are shown with an error in the current UI but are not saved as completed responses.
-
-## Persistence
-
-Node 24 built-in SQLite with WAL and a busy timeout. Tables: messages, notes, tasks, events, locks. One owner; one app replica. Use a persistent local disk, not ephemeral serverless storage. Recent context is limited to 16 messages, with per-message clipping; this version does not summarize older conversations. Imported notes are contextual data, not system instructions.
-
-## Voice
-
-Browser one-utterance recognition and system TTS are the default. Optional ElevenLabs uses an authenticated server endpoint and correct MP3 content type. Playback start/end drives Speaking; analyser values drive humanoid glow for cloud audio. Stop cancels model fetch, microphone recognition, cloud playback and speech synthesis; stale run callbacks are ignored.
-
-## Scheduling
-
-The reminder worker uses a SQLite transaction to mark due tasks and insert one event per task. The uniqueness constraint provides idempotence. UI polling is the delivery mechanism; no email/push delivery or general autonomous action executor is included.
-
-## Deployment
-
-Docker Compose includes app, reminder worker and private Ollama. Memory and model volumes survive restarts. Bind the app on loopback and place an HTTPS reverse proxy in front. Set APP_ORIGIN to the exact public origin; cookie Secure follows its HTTPS scheme. Keep provider keys and the session secret server-side. Multi-user/replicated deployments require additional authorization boundaries, shared rate limiting and a suitable database design.
+# Architecture
+Browser HUD → authenticated POST /api/apex → SSE events → orb state and tool traces.
+Server turn runner retrieves SQLite notes/history, then selects LLM_PROVIDER (default openai).
+OpenAI uses /v1/responses, gpt-6-astra, low reasoning, store:false, and encrypted reasoning continuity within each tool loop. Output text streams immediately. Function arguments are parsed only after response completion, validated by the tool registry, and executed with timeouts. Original call IDs link results to requests. Loops are limited to five rounds and eight tools. Incomplete streams cannot report success.
+Only read-only tools are model-accessible. Memory edits and reminder creation require user actions in authenticated panels. SQLite stores final conversation text, notes, reminders, and verification events; provider reasoning is not persisted.
+Optional Ollama uses its existing NDJSON adapter. Voice uses browser recognition/synthesis or optional ElevenLabs audio. The humanoid UI and assets were removed; orb/map state remains event-driven.
+App and worker share persistent DATA_DIR. Session cookies are signed; mutation routes check origin. This is a single-owner application requiring HTTPS for public deployment.

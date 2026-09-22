@@ -16,7 +16,6 @@ import ApexHeroOrb, { type OrbState } from "./ApexHeroOrb";
 import ReasoningWebJs from "./ReasoningWeb";
 import ShaderBackgroundJs from "./ShaderBackground";
 import OrbStatusBar from "./OrbStatusBar";
-import HumanoidFace from "./HumanoidFace";
 import AssistantConsole from "./AssistantConsole";
 
 export type NodeSel = { name: string; key: string; color: string };
@@ -191,7 +190,6 @@ export default function ApexWorld() {
   const [reduced, setReduced] = useState(false);
 
   const [orbState,setOrbState]=useState<OrbState>("idle");
-  const [showHumanoid,setShowHumanoid]=useState(false);
   const [trace,setTrace]=useState({n:0,trace:[] as {helper:string}[]});
   const boost=()=>window.dispatchEvent(new Event('assistant:listen'));
 
@@ -229,11 +227,6 @@ export default function ApexWorld() {
         </div>
       )}
 
-      {showHumanoid && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60 }}>
-          <HumanoidFace state={orbState} onComplete={() => setShowHumanoid(false)} />
-        </div>
-      )}
 
       {/* cyan LIGHT-CAST - app copy exactly: mixBlendMode screen (only ever LIFTS the
           navy, never darkens), brightens while speaking. The app has NO dark moat disc
@@ -298,7 +291,7 @@ export default function ApexWorld() {
       {/* equalizer + STANDBY cluster */}
       <OrbStatusBar state={orbState} />
 
-      <AssistantConsole onState={setOrbState} onFace={setShowHumanoid} onTrace={helper=>setTrace(t=>({n:t.n+1,trace:[{helper}]}))} />
+      <AssistantConsole onState={setOrbState} onTrace={helper=>setTrace(t=>({n:t.n+1,trace:[{helper}]}))} />
       {selected && <AgentOverview sel={selected} onClose={() => setSelected(null)} />}
     </div>
   );

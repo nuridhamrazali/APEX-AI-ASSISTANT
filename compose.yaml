@@ -11,8 +11,6 @@ services:
       - "127.0.0.1:3000:3000"
     volumes:
       - assistant-data:/app/data
-    depends_on:
-      - ollama
     restart: unless-stopped
   worker:
     build:
@@ -25,6 +23,7 @@ services:
       - assistant-data:/app/data
     restart: unless-stopped
   ollama:
+    profiles: [local]
     image: ollama/ollama:latest
     volumes:
       - ollama-models:/root/.ollama

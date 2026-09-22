@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 const temp = mkdtempSync(join(tmpdir(), "apex-test-"));
 process.env.DATA_DIR = temp;
+process.env.LLM_PROVIDER = "ollama";
 process.env.APP_PASSWORD = "test-password-long";
 process.env.SESSION_SECRET = "a".repeat(64);
 process.env.APP_ORIGIN = "http://localhost:3000";

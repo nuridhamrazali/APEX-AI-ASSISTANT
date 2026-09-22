@@ -1,3 +1,4 @@
+process.env.LLM_PROVIDER = "ollama";
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:http';
 import {mkdtempSync,rmSync} from 'node:fs';
