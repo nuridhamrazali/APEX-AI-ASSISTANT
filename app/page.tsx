@@ -1,7 +1,12 @@
+import {cookies} from "next/headers";
+import {redirect} from "next/navigation";
+import {valid} from "@/lib/auth";
+export const dynamic="force-dynamic";
 import ApexWorld from "@/components/ApexWorld";
 import ApexOverviewPanel from "@/components/ApexOverviewPanel";
 
-export default function Home() {
+export default async function Home() {
+  if(!valid((await cookies()).get("apex_session")?.value || ""))redirect("/login");
   return (
     <main
       id="main"

@@ -5,9 +5,12 @@ import { X, RotateCcw, Play, Pause, Activity } from "lucide-react";
 
 export interface HumanoidFaceProps {
   onComplete?: () => void;
+  state?: string;
 }
 
-export default function HumanoidFace({ onComplete }: HumanoidFaceProps) {
+export default function HumanoidFace({ onComplete, state = "idle" }: HumanoidFaceProps) {
+  const stateRef=useRef(state);
+  useEffect(()=>{stateRef.current=state;},[state]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -247,7 +250,7 @@ export default function HumanoidFace({ onComplete }: HumanoidFaceProps) {
 
       ctx.font = `${Math.max(13, Math.floor(22 * scale))}px "Segoe UI", Arial, sans-serif`;
       ctx.fillStyle = `rgba(165,240,255,${0.95 * amount})`;
-      ctx.fillText(isProcessing ? "STATUS : PROCESSING" : "STATUS : INITIALIZING", x + 17 * scale, y + h * 0.54);
+      ctx.fillText(isProcessing ? `STATUS : ${stateRef.current.toUpperCase()}` : "STATUS : INITIALIZING", x + 17 * scale, y + h * 0.54);
       ctx.restore();
     };
 
@@ -255,6 +258,8 @@ export default function HumanoidFace({ onComplete }: HumanoidFaceProps) {
       if (!pausedRef.current) {
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, W, H);
+        const level=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--voice-level")) || 0;
+        ctx.shadowBlur=level*12;ctx.shadowColor="#00e5ff";
 
         const duration = 14000;
         const u = clamp((now - start) / duration, 0, 1);

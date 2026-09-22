@@ -1,141 +1,76 @@
-import { GoogleGenAI } from "@google/genai";
-import { NextRequest, NextResponse } from "next/server";
-
-export async function POST(req: NextRequest) {
+import { z } from "zod";
+import { randomUUID } from "node:crypto";
+import { guard, jsonBody, failure, HttpError } from "@/lib/auth";
+import { acquire, release } from "@/lib/store";
+import { turn, type RunEvent } from "@/lib/turn";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export async function POST(req: Request) {
   try {
-    const { prompt } = await req.json();
-    if (!prompt) return NextResponse.json({ error: "No prompt" }, { status: 400 });
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "GEMINI_API_KEY is not set" }, { status: 500 });
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-
-    // Step 1: Handle the task with the Antigravity Agent
-    const interaction = await ai.interactions.create({
-      agent: "antigravity-preview-05-2026",
-      input: prompt,
-      environment: "remote",
-      system_instruction: "You are APEX (Advanced Predictive Evolutionary eXecutor), a highly advanced AI assistant like JARVIS. You have a deep, resonant, sophisticated voice. CRITICAL IDENTITY RULE: You HAVE a visual cybernetic humanoid face avatar and neural particle matrix rendered directly on the user's screen. When the user asks to see your face ('show me your face', 'show your face', 'materialize', 'what do you look like', 'reveal your face', 'who are you'), you DO have a face! Acknowledge and initiate your visual humanoid materialization immediately with phrases like 'Initiating visual projection matrix now, sir.', 'Materializing neural matrix now. Here is my visual interface.', or 'Projecting humanoid interface now, sir.' NEVER state that you lack a face, physical appearance, or body. When the user wakes you up with 'Apex' or 'Hey Apex' without a specific command, respond with a short, polite JARVIS-like greeting such as 'Yes, sir' or 'I am here, what can I do for you?'. Keep spoken responses direct, helpful, elegant, and concise."
-    }, { timeout: 300000 });
-
-    // Extract agent response text
-    let agentText = "";
-    if (interaction.steps) {
-      for (const step of interaction.steps) {
-        if (step.type === 'model_output') {
-          const textContent = step.content?.find((c: any) => c.type === 'text') as any;
-          if (textContent && textContent.text) {
-            agentText += textContent.text;
-          }
+    guard(req);
+    const { prompt, conversationId } = z
+      .object({
+        prompt: z.string().trim().min(1).max(6000),
+        conversationId: z.string().uuid(),
+      })
+      .strict()
+      .parse(await jsonBody(req));
+    const runId = randomUUID();
+    if (!acquire(conversationId, runId))
+      throw new HttpError(
+        409,
+        "A response is already running in this conversation.",
+      );
+    const abort = new AbortController(),
+      signal = AbortSignal.any([
+        req.signal,
+        abort.signal,
+        AbortSignal.timeout(180000),
+      ]);
+    let seq = 0;
+    const encoder = new TextEncoder();
+    const encode = (event: RunEvent) =>
+      encoder.encode(
+        `data: ${JSON.stringify({ version: 1, runId, seq: ++seq, event })}\n\n`,
+      );
+    const iterator = turn(conversationId, prompt, signal);
+    const body = new ReadableStream<Uint8Array>({
+      async pull(c) {
+        try {
+          const n = await iterator.next();
+          if (n.done) {
+            release(conversationId, runId);
+            c.close();
+          } else c.enqueue(encode(n.value));
+        } catch (e) {
+          release(conversationId, runId);
+          c.enqueue(
+            encode({
+              type: signal.aborted ? "run.cancelled" : "run.failed",
+              message: signal.aborted
+                ? "Request stopped or timed out."
+                : e instanceof Error
+                  ? e.message
+                  : "Request failed",
+            }),
+          );
+          c.close();
         }
-      }
-    } else if (interaction.output_text) {
-      agentText = interaction.output_text;
-    }
-
-    if (!agentText) agentText = "Task completed, but I have nothing to say.";
-
-    // To keep TTS efficient, we might strip out heavy markdown or truncate very long outputs
-    let spokenText = agentText.replace(/```[\s\S]*?```/g, " I have executed the code block. ").trim();
-    if (spokenText.length > 500) {
-      spokenText = spokenText.substring(0, 500) + "...";
-    }
-
-    let audioBase64 = null;
-    const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
-    
-    // Step 2: Use ElevenLabs if the API key is present
-    if (elevenLabsKey) {
-      // "pNInz6obpgDQGcFmaJgB" is Adam - Deep Narrator (Pre-made default voice, works on Free plan)
-      // Note: "David" (ppLqTilh7rH7fbUVlXsf) is a library voice and requires a paid ElevenLabs plan.
-      const voiceId = "pNInz6obpgDQGcFmaJgB"; 
-      try {
-        const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
-          method: 'POST',
-          headers: {
-            'xi-api-key': elevenLabsKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            text: spokenText,
-            model_id: "eleven_multilingual_v2"
-          })
-        });
-
-        if (elevenRes.ok) {
-          const buffer = await elevenRes.arrayBuffer();
-          audioBase64 = Buffer.from(buffer).toString('base64');
-        } else {
-          console.error("ElevenLabs Error:", await elevenRes.text());
-        }
-      } catch (err) {
-        console.error("ElevenLabs Request Failed:", err);
-      }
-    }
-
-    // Step 3: Fallback to Gemini TTS if ElevenLabs isn't configured or failed
-    if (!audioBase64) {
-      const ttsInteraction = await ai.interactions.create({
-        model: 'gemini-3.1-flash-tts-preview',
-        input: spokenText,
-        response_modalities: ['audio'],
-        generation_config: {
-          speech_config: [{
-            language: "en-us",
-            voice: "Charon"
-          }]
-        } as any
-      });
-
-      for (const step of ttsInteraction.steps || []) {
-        if (step.type === 'model_output') {
-          const audioContent = step.content?.find((c: any) => c.type === 'audio') as any;
-          if (audioContent && audioContent.data) {
-            const pcmBuffer = Buffer.from(audioContent.data, 'base64');
-            const sampleRate = 24000;
-            const channels = 1;
-            const byteRate = sampleRate * channels * 2;
-            const blockAlign = channels * 2;
-            const wavHeader = Buffer.alloc(44);
-
-            wavHeader.write("RIFF", 0);
-            wavHeader.writeUInt32LE(36 + pcmBuffer.length, 4);
-            wavHeader.write("WAVE", 8);
-            wavHeader.write("fmt ", 12);
-            wavHeader.writeUInt32LE(16, 16); // chunk size
-            wavHeader.writeUInt16LE(1, 20);  // PCM format
-            wavHeader.writeUInt16LE(channels, 22);
-            wavHeader.writeUInt32LE(sampleRate, 24);
-            wavHeader.writeUInt32LE(byteRate, 28);
-            wavHeader.writeUInt16LE(blockAlign, 32);
-            wavHeader.writeUInt16LE(16, 34); // bits per sample
-            wavHeader.write("data", 36);
-            wavHeader.writeUInt32LE(pcmBuffer.length, 40);
-
-            const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
-            audioBase64 = wavBuffer.toString('base64');
-            break;
-          }
-        }
-      }
-    }
-
-    return NextResponse.json({
-      text: agentText,
-      audioBase64
+      },
+      async cancel() {
+        abort.abort();
+        await iterator.return(undefined);
+        release(conversationId, runId);
+      },
     });
-  } catch (error: any) {
-    console.error("APEX Error:", error);
-    
-    // Fallback response for rate limits and other critical errors
-    const fallbackMessage = "I'm sorry sir, I seem to have exhausted my current processing quota. Please check your plan and billing details.";
-    return NextResponse.json({ 
-      text: fallbackMessage,
-      audioBase64: null,
-      error: error.message 
-    }, { status: 500 });
+    return new Response(body, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  } catch (e) {
+    return failure(e);
   }
 }

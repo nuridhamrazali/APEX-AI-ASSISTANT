@@ -1,70 +1,22 @@
-# APEX-UI
+# Personal Assistant — local memory edition
 
-An animated **autonomous-agent orb + reasoning-graph** interface — the front-end of
-[Apex](https://reznikov-engineering.com/apex), released open source.
+Integrated from [nuridhamrazali/APEX-AI-ASSISTANT](https://github.com/nuridhamrazali/APEX-AI-ASSISTANT). Preserves the existing HUD, orb, graph, and humanoid animation while adding streaming chat, local SQLite memory, Markdown import/export, reminders, and password sign-in.
 
-Tap the orb to cycle its state (idle → thinking → speaking); the reasoning web reacts,
-agent nodes orbit the core, and clicking any node opens an overview card. The orb ring,
-agent graph and status bar are **hand-written SVG / CSS**; the cyan particle core is a
-small `react-three-fiber` scene (skipped under `prefers-reduced-motion`); and the WebGL
-shader backdrop + the overview lamp panel are **MIT community components from
-[21st.dev](https://21st.dev/community/components)** (see [CREDITS](./CREDITS.md)).
+**Start with [BEGINNER-GUIDE.md](BEGINNER-GUIDE.md).** Node 24 and a running Ollama model are required. No memory API key or subscription is needed.
 
-> Built with Next.js 15 + React 19. Runtime deps: `lucide-react` (icons) and
-> `three` / `@react-three/fiber` / `@react-three/postprocessing` (the particle core) —
-> all MIT-licensed.
-
-## Demo
-
-```bash
-npm install
+```sh
+npm ci
+npm run setup
+ollama pull qwen3:4b
 npm run dev
-# open http://localhost:3000
 ```
 
-Then `npm run build` for a production build, or deploy to Vercel in one click.
+Open http://localhost:3000 and use APP_PASSWORD from .env.local.
 
-## What's inside
+Production: `npm run build` then `npm start`, or use the included Docker Compose stack. Public deployment needs a persistent Node/Docker host and a reachable model service. It is not a static/serverless deployment.
 
-| Piece | What it does |
-|-------|--------------|
-| `ApexOrb` | The golden ring frame, waveform and orbit dots (pure SVG) |
-| `ApexCore3D` | The cyan particle core (`react-three-fiber` + bloom) |
-| `ApexHeroOrb` | Stacks the SVG ring + the particle core, scaled to fit |
-| `ReasoningWeb` | The agent constellation — circuit traces, orbit rings, 18-node roster |
-| `OrbStatusBar` | The equalizer + STANDBY cluster along the bottom |
-| `ShaderBackground` | Animated WebGL "plasma waves" backdrop (MIT component from 21st.dev — see CREDITS) |
-| `ApexWorld` | Composes the above; owns the tap-state cycle and the agent overview cards |
-| `ApexOverviewPanel` | Top-left HUD: live clock, weather, and social links |
-| `app/api/weather` | Keyless [open-meteo](https://open-meteo.com) proxy for the panel's weather |
+Model tools: current time, saved-note search, local reminder listing, and Wikipedia title/link search. Other graph nodes are retained visual categories and are marked unconnected. Saves/edits use the Memory and Reminders panels. Browser speech is available without a provider key; optional ElevenLabs output requires your own account. No arbitrary shell execution, email sending, cloud drives, autonomous coding, or push notifications are claimed.
 
-## Customise
+History is durable, with a bounded recent context per conversation. Memory uses lexical retrieval over the newest 200 notes. Obsidian integration is explicit Markdown import/export, not live synchronization.
 
-- **Social links** → edit `TILES` in `components/ApexOverviewPanel.tsx`.
-- **Weather** → auto-detects the **visitor's** city on Vercel (geo headers); edit `FALLBACK` in `app/api/weather/route.ts` to change the off-Vercel / localhost default.
-- **Agents & copy** → the `ROSTER` and `INFO` maps in `components/ApexWorld.tsx`.
-- **Backdrop** → the shader in `components/ShaderBackground.jsx`; its opacity/tint are set where `<ShaderBackground>` is used in `ApexWorld.tsx`.
-
-## Accessibility
-
-The decorative SVG graph is mirrored by a real, keyboard-navigable agent list
-(`.visually-hidden`), the orb and every control are focusable, and the whole thing
-respects `prefers-reduced-motion`.
-
-## Not included (on purpose)
-
-This repo is the **UI only**. The production Apex page also has a spoken-voice layer and a
-"story" narrative — those are personal recordings and private copy, so they are intentionally
-left out. The orb stays fully interactive without them.
-
-## License
-
-Code is released under the **[MIT License](./LICENSE)** — use it, fork it, ship it.
-
-The **name "Apex" and the Reznikov Engineering branding are not part of this license.**
-If you build on this, please use your own product name and branding.
-
----
-
-Made by [Ruben Mouradian — Reznikov Engineering](https://reznikov-engineering.com).
-If you use it, a link back is appreciated (not required).
+UI code retains the upstream MIT license and attribution in [LICENSE](LICENSE), [CREDITS.md](CREDITS.md), and [UPSTREAM-README.md](UPSTREAM-README.md). Upstream product names and branding are not covered by that code license. This is a personal derivative, not the official Reznikov Engineering service.

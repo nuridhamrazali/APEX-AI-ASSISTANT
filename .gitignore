@@ -7,3 +7,9 @@ build/
 next-env.d.ts
 .DS_Store
 .vercel
+.env
+.env.*
+!.env.example
+data/
+*.sqlite*
+artifacts/

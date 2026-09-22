@@ -17,6 +17,7 @@ import ReasoningWebJs from "./ReasoningWeb";
 import ShaderBackgroundJs from "./ShaderBackground";
 import OrbStatusBar from "./OrbStatusBar";
 import HumanoidFace from "./HumanoidFace";
+import AssistantConsole from "./AssistantConsole";
 
 export type NodeSel = { name: string; key: string; color: string };
 
@@ -61,62 +62,16 @@ export const ROSTER: { key: string; name: string; color: string }[] = [
 ];
 
 /* Overview data per ReasoningWeb roster id - the site's template content */
-export const INFO: Record<string, AgentInfo> = {
-  chief_of_staff: { role: "Right hand - runs the day", status: "online",
-    caps: ["Prioritizes the day and keeps loose ends closed", "Routes every request to the right specialist", "Escalates only what truly needs a human"],
-    asks: ["What needs attention today?", "Chase the open quotes"] },
-  memory: { role: "Long-term memory", status: "online",
-    caps: ["Remembers every client, project and decision", "Feeds context into every task automatically", "Learns preferences over time"],
-    asks: ["What did we decide about X?", "History with this client"] },
-  strategist: { role: "Big-picture thinking", status: "online",
-    caps: ["Weekly strategy reviews", "Goal and milestone tracking", "Spots opportunities and risks early"],
-    asks: ["Where should we double down?"] },
-  researcher: { role: "Deep research", status: "online",
-    caps: ["Market and competitor research", "Technical deep-dives", "Source-checked summaries"],
-    asks: ["Research this market", "Compare these suppliers"] },
-  finance: { role: "Money watch", status: "online",
-    caps: ["Revenue and pipeline tracking", "Pricing sanity checks", "Monthly performance recaps"],
-    asks: ["How was this month?", "Is this quote priced right?"] },
-  editor: { role: "Quality gate", status: "online",
-    caps: ["Rewrites and tightens every draft", "Keeps the brand voice consistent", "Final pass before anything ships"],
-    asks: ["Polish this post", "Tighten this email"] },
-  sales: { role: "Deal closer", status: "online",
-    caps: ["Follow-ups for every lead", "Warm-outreach drafts", "Pipeline nudges so nothing goes cold"],
-    asks: ["Draft a follow-up", "Who went quiet?"] },
-  marketing: { role: "Growth engine", status: "online",
-    caps: ["Campaign generation", "Pricing analysis", "Brand positioning and content calendar"],
-    asks: ["Generate campaign", "Competitor research"] },
-  ops: { role: "Business operator", status: "online",
-    caps: ["Client quotes and proposals", "Project scoping and timelines", "Supplier sourcing"],
-    asks: ["Draft client quote", "Build project scope"] },
-  social_media: { role: "Voice of the brand", status: "online",
-    caps: ["Writes posts and captions", "Creates reel scripts", "Posts to Instagram, LinkedIn and Facebook"],
-    asks: ["Write post caption", "Plan content week"] },
-  engineering: { role: "Engineering brain", status: "online",
-    caps: ["3D-print settings and materials", "Tolerances and fit", "Laser power and speed guidance"],
-    asks: ["Review STL file", "Calculate tolerances"] },
-  design: { role: "Visual workshop", status: "online",
-    caps: ["Background removal and replacement", "Text overlays", "Resize for social media", "Filters and enhancement"],
-    asks: ["Remove background", "Resize for IG"] },
-  developer: { role: "Keeper of the build log", status: "standby",
-    caps: ["Keeps Apex's development log", "Recaps what shipped - day / week / month", "Future: builds Apex itself"],
-    asks: ["Recap last week"] },
-  analytics: { role: "Numbers feed", status: "integration",
-    caps: ["Performance metrics across every channel", "Feeds the weekly reviews"] },
-  crm: { role: "Client memory bank", status: "integration",
-    caps: ["Every lead and client in one pipeline", "Stage tracking from first contact to paid"] },
-  calendar: { role: "Schedule sense", status: "integration",
-    caps: ["Knows the calendar", "Reminders and follow-up timing"] },
-  email: { role: "Inbox hands", status: "integration",
-    caps: ["Inbox triage and reply drafts", "Connected and in use"] },
-  drive: { role: "File access", status: "integration",
-    caps: ["Reads and files documents", "Connected and in use"] },
-};
+export const INFO: Record<string, AgentInfo> = Object.fromEntries(ROSTER.map(n=>[n.key, {
+  role: n.name,
+  status: (["chief_of_staff","memory","researcher","calendar"].includes(n.key) ? "online" : "integration") as AgentInfo["status"],
+  caps: n.key==="memory" ? ["Search saved notes locally", "Edit and export Markdown in Memory"] : n.key==="researcher" ? ["Search Wikipedia titles and source links"] : n.key==="calendar" ? ["List local reminders", "No external calendar connected"] : n.key==="chief_of_staff" ? ["Stream model responses and coordinate available tools"] : ["Visual category retained from your HUD", "No external service connected"],
+}]));
 
 const STATUS_LINE: Record<AgentInfo["status"], { color: string; text: string }> = {
-  online: { color: "#34d399", text: "Online - Apex routes work to it automatically" },
+  online: { color: "#34d399", text: "Available local capability" },
   standby: { color: "#c9a84c", text: "Standby - in active development" },
-  integration: { color: "#7f9bb3", text: "Integration - wired into the core" },
+  integration: { color: "#7f9bb3", text: "Not connected" },
 };
 
 /* ── AGENT OVERVIEW window - the site's template (the app opens live cockpits) ── */
@@ -235,178 +190,10 @@ export default function ApexWorld() {
   const [selected, setSelected] = useState<NodeSel | null>(null);
   const [reduced, setReduced] = useState(false);
 
-  // A tap cycles idle → thinking → speaking → idle. That state drives the
-  // backdrop, the light-cast and the reasoning web's activity level.
-  const [showState, setShowState] = useState<OrbState>("idle");
-  const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const orbState: OrbState = showState;
-
-  const showStateRef = useRef(showState);
-  useEffect(() => { showStateRef.current = showState; }, [showState]);
-
-  const [isAwake, setIsAwake] = useState(false);
-  const isAwakeRef = useRef(isAwake);
-  useEffect(() => { isAwakeRef.current = isAwake; }, [isAwake]);
-
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatInput, setChatInput] = useState("");
-  const [showHumanoid, setShowHumanoid] = useState(false);
-  const recognitionRef = useRef<any>(null);
-
-  const boost = () => {
-    if (!isAwake) {
-      setIsAwake(true);
-      setShowState("listening");
-    } else {
-      setIsAwake(false);
-      setShowState("idle");
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
-      }
-    }
-  };
-
-  const isFaceCommand = (text: string) => {
-    const t = text.toLowerCase();
-    return (
-      t.includes("face") ||
-      t.includes("humanoid") ||
-      t.includes("avatar") ||
-      t.includes("materialize") ||
-      t.includes("look like") ||
-      t.includes("who are you") ||
-      t.includes("reveal") ||
-      t.includes("show me you")
-    );
-  };
-
-  const isDismissFaceCommand = (text: string) => {
-    const t = text.toLowerCase();
-    return (
-      t.includes("hide face") ||
-      t.includes("close face") ||
-      t.includes("dismiss face") ||
-      t.includes("back to orb") ||
-      t.includes("hide humanoid") ||
-      t.includes("exit face")
-    );
-  };
-
-  const processCommand = async (transcript: string) => {
-    const isFace = isFaceCommand(transcript);
-    const isDismiss = isDismissFaceCommand(transcript);
-
-    if (isFace) {
-      setShowHumanoid(true);
-    } else if (isDismiss) {
-      setShowHumanoid(false);
-    }
-
-    setShowState("thinking");
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
-    }
-    
-    try {
-      const res = await fetch('/api/apex', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: transcript })
-      });
-      
-      const data = await res.json();
-      if (data.error && !data.text) throw new Error(data.error);
-
-      if (data.audioBase64) {
-        setShowState("speaking");
-        const audio = new Audio(`data:audio/wav;base64,${data.audioBase64}`);
-        audio.onended = () => {
-          if (isAwakeRef.current) {
-            setShowState("listening");
-            try { recognitionRef.current?.start(); } catch(e) {}
-          } else {
-            setShowState("idle");
-          }
-        };
-        audio.play().catch((e) => {
-          console.error("Audio playback failed", e);
-          if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
-        });
-      } else if (data.text) {
-        setShowState("speaking");
-        const msg = new SpeechSynthesisUtterance(data.text);
-        msg.onend = () => {
-          if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
-        };
-        window.speechSynthesis.speak(msg);
-      } else {
-        if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
-      }
-    } catch (err: any) {
-      console.error("APEX Error:", err);
-      setShowState("speaking");
-      const text = isFace 
-        ? "Initiating visual projection matrix now, sir. Neural humanoid interface online." 
-        : (err.message || "I'm sorry sir, I am experiencing a temporary system failure.");
-      const msg = new SpeechSynthesisUtterance(text);
-      msg.onend = () => {
-        if (isAwakeRef.current) { setShowState("listening"); try { recognitionRef.current?.start(); } catch(e){} } else setShowState("idle");
-      };
-      window.speechSynthesis.speak(msg);
-    }
-  };
-
-  const handleChatSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    processCommand(chatInput.trim());
-    setChatInput("");
-    setChatOpen(false);
-  };
-
-  useEffect(() => {
-    if (!isAwake) return;
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech Recognition is not supported in this browser.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    recognition.lang = 'en-US';
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    
-    recognition.onresult = async (event: any) => {
-      const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
-      const hasWakeWord = transcript.includes("apex");
-      if (hasWakeWord) {
-        processCommand(transcript);
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      if (event.error !== "no-speech" && event.error !== "aborted") {
-        console.error("Speech Recognition Error:", event.error);
-      }
-    };
-
-    recognition.onend = () => {
-      if (isAwakeRef.current && showStateRef.current === "listening") {
-        try { recognition.start(); } catch (e) {}
-      }
-    };
-
-    try { recognition.start(); } catch(e) {}
-
-    return () => {
-      try { recognition.stop(); } catch (e) {}
-    };
-  }, [isAwake]);
-
-  useEffect(() => () => { if (showTimer.current) clearTimeout(showTimer.current); }, []);
+  const [orbState,setOrbState]=useState<OrbState>("idle");
+  const [showHumanoid,setShowHumanoid]=useState(false);
+  const [trace,setTrace]=useState({n:0,trace:[] as {helper:string}[]});
+  const boost=()=>window.dispatchEvent(new Event('assistant:listen'));
 
   // Single entry point for opening an agent, shared by the SVG graph and the
   // hidden accessible list, so both routes behave identically.
@@ -444,7 +231,7 @@ export default function ApexWorld() {
 
       {showHumanoid && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60 }}>
-          <HumanoidFace onComplete={() => setShowHumanoid(false)} />
+          <HumanoidFace state={orbState} onComplete={() => setShowHumanoid(false)} />
         </div>
       )}
 
@@ -467,6 +254,7 @@ export default function ApexWorld() {
       <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none" }}>
         <ReasoningWeb
           state={webState}
+          trace={trace}
           mode="full"
           coreless
           onSelect={(n: NodeSel) => { openAgent(n); }}
@@ -510,108 +298,7 @@ export default function ApexWorld() {
       {/* equalizer + STANDBY cluster */}
       <OrbStatusBar state={orbState} />
 
-      {/* Chat and Action Controls */}
-      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
-        {chatOpen && (
-          <form onSubmit={handleChatSubmit} style={{ 
-            display: "flex", 
-            background: "rgba(4,8,15,0.85)", 
-            backdropFilter: "blur(12px)", 
-            border: "1px solid rgba(13,210,255,0.2)", 
-            borderRadius: 24,
-            padding: "4px 8px 4px 16px",
-            width: "min(320px, 80vw)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
-          }}>
-            <input 
-              type="text" 
-              value={chatInput} 
-              onChange={(e) => setChatInput(e.target.value)} 
-              placeholder="Message APEX or ask to see face..." 
-              autoFocus
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#f0ede8",
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.85rem",
-                outline: "none",
-                flex: 1,
-                padding: "8px 0"
-              }}
-            />
-            <button type="submit" style={{
-              background: "transparent",
-              border: "none",
-              color: "rgba(13,210,255,0.8)",
-              cursor: "pointer",
-              padding: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}>
-              <Send size={18} />
-            </button>
-          </form>
-        )}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button 
-            onClick={() => {
-              const next = !showHumanoid;
-              setShowHumanoid(next);
-              if (next) {
-                processCommand("show me your face apex");
-              }
-            }}
-            title="Materialize Neural Humanoid Face"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "0 14px",
-              height: 48,
-              borderRadius: 24,
-              background: showHumanoid ? "rgba(255,154,60,0.2)" : "rgba(13,210,255,0.12)",
-              border: `1px solid ${showHumanoid ? "rgba(255,154,60,0.5)" : "rgba(13,210,255,0.35)"}`,
-              color: showHumanoid ? "#ff9a3c" : "rgba(13,210,255,0.95)",
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.78rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              backdropFilter: "blur(8px)",
-              transition: "all 0.2s ease"
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = showHumanoid ? "rgba(255,154,60,0.3)" : "rgba(13,210,255,0.22)" }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = showHumanoid ? "rgba(255,154,60,0.2)" : "rgba(13,210,255,0.12)" }}
-          >
-            <Eye size={16} />
-            <span>{showHumanoid ? "CLOSE FACE" : "SHOW FACE"}</span>
-          </button>
-
-          <button 
-            onClick={() => setChatOpen(!chatOpen)}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              background: "rgba(13,210,255,0.1)",
-              border: "1px solid rgba(13,210,255,0.3)",
-              color: "rgba(13,210,255,0.9)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              backdropFilter: "blur(8px)",
-              transition: "all 0.2s ease"
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(13,210,255,0.2)" }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(13,210,255,0.1)" }}
-          >
-            {chatOpen ? <X size={20} /> : <MessageSquare size={20} />}
-          </button>
-        </div>
-      </div>
-
+      <AssistantConsole onState={setOrbState} onFace={setShowHumanoid} onTrace={helper=>setTrace(t=>({n:t.n+1,trace:[{helper}]}))} />
       {selected && <AgentOverview sel={selected} onClose={() => setSelected(null)} />}
     </div>
   );
