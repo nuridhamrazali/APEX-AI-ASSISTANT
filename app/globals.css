@@ -81,3 +81,36 @@ body {
 .login-page{min-height:100vh;display:grid;place-items:center;background:radial-gradient(ellipse at center,#102d40,#02060c);color:#e0f6ff;font-family:system-ui}
 .login-page form{width:min(400px,90vw);box-sizing:border-box}.login-page small{display:block;margin-top:20px;color:#94b3c2}
 @media(max-width:600px){.assistant-console{right:10px;bottom:10px;width:calc(100vw - 20px)}.assistant-panel{padding:12px}.assistant-panel nav{gap:3px}.assistant-panel nav button{font-size:11px;padding:7px}.assistant-messages,.assistant-scroll{max-height:38vh}}
+
+/* Reference-video HUD: open canvas, compact controls, visible real activity. */
+.apex-overview { transform:scale(.68); transform-origin:top left; }
+.assistant-console { width:auto; right:0; bottom:0; left:0; pointer-events:none; }
+.assistant-console .assistant-panel { position:fixed; right:18px; bottom:94px; width:min(420px,calc(100vw - 36px)); pointer-events:auto; }
+.assistant-toolbar { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); margin:0; padding:0; background:none; gap:6px; pointer-events:auto; }
+.assistant-toolbar button { font:10px var(--font-mono); padding:5px 10px; border-radius:20px; background:#06192bdd; border-color:#245065; }
+.assistant-toolbar button[aria-pressed=true] { color:#ffd080; border-color:#a77c32; }
+.assistant-toolbar .hud-control-gap { width:170px; flex:none; margin:0; }
+.hud-state { position:fixed; left:50%; top:22px; transform:translateX(-50%); border:1px solid #1e6973; border-radius:4px; background:#052635bb; color:#74dadd; padding:4px 12px; font:9px var(--font-mono); letter-spacing:.2em; text-transform:uppercase; max-width:44vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hud-task-feed { position:fixed; top:102px; left:18px; width:172px; max-height:65vh; overflow:auto; scrollbar-width:thin; pointer-events:auto; color:#76b2c7; font:9px/1.7 var(--font-mono); text-transform:uppercase; }
+.hud-task-feed h2 { font:9px var(--font-mono); color:#a4e6f0; letter-spacing:.2em; margin:0 0 10px; }
+.hud-connection { font-size:8px; color:#6297ad; padding-bottom:8px; border-bottom:1px solid #23465b; }
+.hud-task-feed ol { padding:0; list-style:none; }
+.hud-task-feed li { border-left:1px solid #316e82; padding:3px 0 3px 7px; margin:4px 0; overflow-wrap:anywhere; }
+.hud-transcript { text-transform:none; border-top:1px solid #23465b; padding-top:8px; overflow-wrap:anywhere; max-height:160px; overflow:auto; }
+.hud-transcript small { color:#c7edf1; letter-spacing:.2em; }
+.hud-result { position:fixed; right:36px; top:52%; width:95px; text-align:center; color:#ffd080; }
+.hud-result span { display:block; width:52px; height:52px; margin:0 auto 9px; border:1px solid #876e33; border-radius:5px; font-size:28px; line-height:50px; background:#062238cc; box-shadow:0 0 25px #29caff12; }
+.hud-result small { font:8px var(--font-mono); letter-spacing:.1em; }
+.hud-result[data-result=failed] {color:#ff9b85;}
+.hud-error-notice { position:fixed; left:50%; bottom:170px; transform:translateX(-50%); pointer-events:auto; max-width:80vw; background:#291b20ed; color:#ffc6a9; border:1px solid #78504c; border-radius:5px; padding:9px; font:11px var(--font-mono); }
+@media(max-width:700px) {
+ .hud-task-feed { top:94px; left:10px; width:110px; font-size:8px; max-height:28vh; }
+ .hud-transcript {display:none;}
+ .hud-result {right:10px;top:65%;width:75px;}
+ .hud-state {top:14px;left:auto;right:10px;transform:none;max-width:40vw;}
+ .assistant-toolbar .hud-control-gap {width:80px;}
+ .assistant-toolbar {bottom:16px;}
+ .assistant-toolbar button {padding:6px 9px;}
+ .assistant-console .assistant-panel {right:10px;width:calc(100vw - 20px);bottom:70px;}
+}
+@media(prefers-reduced-motion:reduce){.hud-agent-map {transition:none!important;}}

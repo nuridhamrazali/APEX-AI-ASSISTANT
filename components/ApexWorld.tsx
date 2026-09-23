@@ -188,9 +188,11 @@ export function AgentOverview({ sel, onClose }: { sel: NodeSel; onClose: () => v
 export default function ApexWorld() {
   const [selected, setSelected] = useState<NodeSel | null>(null);
   const [reduced, setReduced] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   const [orbState,setOrbState]=useState<OrbState>("idle");
   const [trace,setTrace]=useState({n:0,trace:[] as {helper:string}[]});
+  const hideMap = focused || orbState === "listening";
   const boost=()=>window.dispatchEvent(new Event('assistant:listen'));
 
   // Single entry point for opening an agent, shared by the SVG graph and the
@@ -244,7 +246,7 @@ export default function ApexWorld() {
           collapses the whole graph into a single image. Rather than edit the copy,
           the graph is marked decorative here and the same onSelect path is exposed
           through the equivalent list of real buttons below. */}
-      <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none" }}>
+      <div aria-hidden="true" className="hud-agent-map" data-hidden={hideMap} style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none", opacity: hideMap ? 0 : 1, visibility: hideMap ? "hidden" : "visible", transition: "opacity 650ms ease, visibility 650ms" }}>
         <ReasoningWeb
           state={webState}
           trace={trace}
@@ -255,7 +257,7 @@ export default function ApexWorld() {
       </div>
 
       {/* Keyboard and screen-reader equivalent of the agent graph. */}
-      <nav className="visually-hidden" aria-label="Apex agents">
+      <nav className="visually-hidden" aria-label="Apex agents" hidden={hideMap}>
         <ul>
           {ROSTER.map((a) => (
             <li key={a.key}>
@@ -277,7 +279,7 @@ export default function ApexWorld() {
       <div
         role="button"
         tabIndex={0}
-        aria-label="Apex core - tap to energize"
+        aria-label="Apex core - start listening"
         onClick={boost}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); boost(); } }}
         onMouseDown={(e) => e.preventDefault()}
@@ -291,7 +293,7 @@ export default function ApexWorld() {
       {/* equalizer + STANDBY cluster */}
       <OrbStatusBar state={orbState} />
 
-      <AssistantConsole onState={setOrbState} onTrace={helper=>setTrace(t=>({n:t.n+1,trace:[{helper}]}))} />
+      <AssistantConsole focused={focused} onFocus={()=>setFocused(v=>!v)} onState={setOrbState} onTrace={helper=>setTrace(t=>({n:t.n+1,trace:[{helper}]}))} />
       {selected && <AgentOverview sel={selected} onClose={() => setSelected(null)} />}
     </div>
   );

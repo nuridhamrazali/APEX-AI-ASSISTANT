@@ -81,3 +81,8 @@ Compose supplies the internal Ollama URL. Your machine still supplies memory, co
 - Missing key: edit .env.local or host secrets and restart.
 - Stream ends early: retry a shorter request; interrupted answers are not saved as completed.
 - Microphone unavailable: use localhost or HTTPS and a browser supporting speech recognition.
+
+## Reference-video controls
+The HUD starts with Chat closed. Click Chat to type or open Memory/Reminders/Settings; click Close to return to the canvas. Core hides the agent graph; Agents brings it back. Starting microphone listening also temporarily hides the graph, then restores it when listening ends. Mic requires browser permission. Enable spoken replies in Settings if desired.
+The left feed shows actual tool start/finish events and the latest conversation text. The right indicator means RESPONSE COMPLETE, not that every external action succeeded. Tool failures are marked separately in the feed. Stop cancels activity. The map nodes do not automatically create third-party integrations.
+See VIDEO-REFERENCE.md for what could and could not be established from the supplied recording.

@@ -41,7 +41,7 @@ export default function OrbStatusBar({ state = 'idle' }) {
 
   return (
     <div style={{
-      position: 'absolute', left: 0, right: 0, bottom: 26, display: 'flex',   // site copy: contained in the world section
+      position: 'absolute', left: 0, right: 0, bottom: 32, display: 'flex',   // site copy: contained in the world section
       justifyContent: 'center', zIndex: 18, pointerEvents: 'none',
     }}>
       <style>{`@keyframes sbBar { from { transform: scaleY(0.35); } to { transform: scaleY(1.15); } }`}</style>
@@ -72,12 +72,7 @@ export default function OrbStatusBar({ state = 'idle' }) {
           <circle key={i} cx={cx + (i - 1) * 12} cy={cy + 62} r={2.5} fill={GOLD} className={`orb-dot-blink blink-${i}`} />
         ))}
 
-        {/* Voice discoverability (UI sweep) — the front page is voice-driven; one whisper-quiet hint on
-            standby teaches the commands. Hidden the moment Apex is active. */}
-        {!isActive && (
-          <text className="sb-hint" x={cx} y={cy + 80} textAnchor="middle" fill={GOLD} fontSize="9" fontFamily="'Share Tech Mono', monospace"
-            letterSpacing="0.14em" opacity="0.32">TAP THE CORE · CLICK AN AGENT · SCROLL FOR THE STORY</text>
-        )}
+
       </svg>
     </div>
   )

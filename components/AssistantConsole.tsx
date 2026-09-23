@@ -41,11 +41,15 @@ async function api(
 export default function AssistantConsole({
   onState,
   onTrace,
+  focused,
+  onFocus,
 }: {
   onState: (s: OrbState) => void;
   onTrace: (helper: string) => void;
+  focused: boolean;
+  onFocus: () => void;
 }) {
-  const [open, setOpen] = useState(true),
+  const [open, setOpen] = useState(false),
     [tab, setTab] = useState("chat"),
     [text, setText] = useState(""),
     [messages, setMessages] = useState<Msg[]>([]);
@@ -60,6 +64,7 @@ export default function AssistantConsole({
       tts: string;
     } | null>(null),
     [log, setLog] = useState<string[]>([]);
+  const [result, setResult] = useState<"idle" | "running" | "completed" | "failed">("idle");
   const [memory, setMemory] = useState<Note[]>([]),
     [editId, setEditId] = useState<string | undefined>(),
     [title, setTitle] = useState(""),
@@ -92,6 +97,7 @@ export default function AssistantConsole({
     cleanupAudio.current();
     window.speechSynthesis?.cancel();
     setBusy(false);
+    setResult("idle");
     state("idle", "Stopped");
   }
   useEffect(() => {
@@ -244,7 +250,7 @@ export default function AssistantConsole({
     setError("");
     setLog([]);
     setTab("chat");
-    setOpen(true);
+    setResult("running");
     state("thinking", "Thinking");
     setMessages((m) => [
       ...m,
@@ -286,11 +292,11 @@ export default function AssistantConsole({
           if (v.type === "tool.started") {
             state("thinking", `Running ${v.name}`);
             onTrace(v.helper || "chief_of_staff");
-            setLog((l) => [...l, `▶ ${v.name}`]);
+            setLog((l) => [...l.slice(-11), `▶ ${v.name}`]);
           }
           if (v.type === "tool.finished")
-            setLog((l) => [...l, `${v.ok ? "✓" : "✕"} ${v.name}`]);
-          if (v.type === "run.completed") terminal = true;
+            setLog((l) => [...l.slice(-11), `${v.ok ? "✓" : "✕"} ${v.name}`]);
+          if (v.type === "run.completed") { terminal = true; setResult("completed"); }
           if (v.type === "run.failed" || v.type === "run.cancelled")
             throw new Error(v.message || "Request ended");
         },
@@ -314,6 +320,7 @@ export default function AssistantConsole({
     } catch (e) {
       if (generation.current !== token) return;
       setError(e instanceof Error ? e.message : "Request failed");
+      setResult("failed");
       state("idle", "Error");
       setBusy(false);
     }
@@ -381,10 +388,23 @@ export default function AssistantConsole({
   }
   return (
     <aside className="assistant-console" aria-label="Assistant controls">
+      <div className="hud-state" data-state={status} role="status">{status}</div>
+      <section className="hud-task-feed" aria-label="Live task activity">
+        <h2>EXECUTION</h2>
+        <div className="hud-connection">{provider?.connected ? provider.model : "MODEL DISCONNECTED"}</div>
+        {log.length === 0 ? <p>Waiting for a request</p> : <ol aria-live="polite">{log.map((entry,i)=><li key={i}>{entry.replaceAll("_", " ")}</li>)}</ol>}
+        {messages.length > 0 && <div className="hud-transcript"><small>{messages.at(-1)?.role === "assistant" ? "APEX" : "YOU"}</small><p>{messages.at(-1)?.content || "Processing…"}</p></div>}
+      </section>
+      {result !== "idle" && <div className="hud-result" data-result={result} role="status">
+        <span>{result === "completed" ? "✓" : result === "failed" ? "!" : "⋯"}</span>
+        <small>{result === "completed" ? "RESPONSE COMPLETE" : result === "failed" ? "REQUEST FAILED" : "WORKING"}</small>
+      </div>}
+      {!open && error && <button className="hud-error-notice" onClick={()=>{setOpen(true);setTab("chat");}}>{error}</button>}
+
       {open && (
         <section className="assistant-panel">
           <header>
-            <strong>PERSONAL ASSISTANT</strong>
+            <strong>APEX</strong>
             <button onClick={() => setOpen(false)} aria-label="Hide panel">
               ×
             </button>
@@ -680,10 +700,11 @@ export default function AssistantConsole({
         </section>
       )}
       <div className="assistant-toolbar">
-        <span>{status}</span>
+        <button onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Close" : "Chat"}</button>
+        <button onClick={onFocus} aria-pressed={focused}>{focused ? "Agents" : "Core"}</button>
+        <span className="hud-control-gap" aria-hidden="true" />
         <button onClick={listen}>Mic</button>
         <button onClick={stop}>Stop</button>
-        <button onClick={() => setOpen(!open)}>{open ? "Hide" : "Chat"}</button>
       </div>
     </aside>
   );
