@@ -55,3 +55,87 @@ body {
 @media (max-width: 700px) {
   .sb-hint { display: none; }
 }
+
+:root{--voice-level:0}
+.assistant-console{position:fixed;right:18px;bottom:18px;z-index:80;width:min(420px,calc(100vw - 36px));font:13px/1.5 system-ui,sans-serif;user-select:text}
+.assistant-panel{background:rgba(4,13,23,.96);border:1px solid #225567;border-radius:16px;padding:16px;box-shadow:0 20px 80px #0008;backdrop-filter:blur(16px)}
+.assistant-panel header,.assistant-toolbar,.assistant-panel nav,.assistant-panel form{display:flex;align-items:center;gap:8px}
+.assistant-panel header{justify-content:space-between;letter-spacing:.12em;font-size:11px;margin-bottom:12px}
+.assistant-panel button,.assistant-toolbar button{background:#102b3b;border:1px solid #285467;color:#c4f5ff;border-radius:8px;padding:7px 10px;cursor:pointer}
+.assistant-panel button:disabled{opacity:.45;cursor:default}
+.assistant-panel button[aria-pressed=true]{background:#235166;color:white}
+.assistant-panel input:not([type=checkbox]),.assistant-panel textarea,.assistant-panel select{box-sizing:border-box;background:#071520;color:#e5faff;border:1px solid #275063;border-radius:7px;padding:9px;width:100%;font:inherit;margin:6px 0}
+.assistant-panel textarea{height:110px;resize:vertical}
+.assistant-panel label{display:block;margin:10px 0}
+.assistant-status{color:#a3cad5;font-size:11px;margin:10px 0}
+.assistant-error{color:#ffc6a9;background:#36221f;padding:10px;border-radius:7px}
+.assistant-messages,.assistant-scroll{max-height:min(48vh,420px);overflow:auto;overscroll-behavior:contain}
+.assistant-messages article,.assistant-scroll article{padding:12px;margin:8px 0;border:1px solid #203d4a;border-radius:10px;background:#0a1a26}
+.assistant-messages article[data-role=user]{background:#112b3a}
+.assistant-messages article div{white-space:pre-wrap;overflow-wrap:anywhere}
+.assistant-messages small{color:#7fbaca;font-size:9px;letter-spacing:.16em}
+.assistant-tools{color:#8cb8c4;font:11px/1.5 monospace;margin:8px 0;max-height:100px;overflow:auto}
+.assistant-toolbar{margin-top:10px;justify-content:flex-end;background:#05121de6;border-radius:12px;padding:7px}
+.assistant-toolbar span{margin-right:auto;color:#83cfdd;font-size:11px}
+.assistant-scroll p{color:#a8bfc9}.assistant-scroll article button{margin-right:5px}
+.login-page{min-height:100vh;display:grid;place-items:center;background:radial-gradient(ellipse at center,#102d40,#02060c);color:#e0f6ff;font-family:system-ui}
+.login-page form{width:min(400px,90vw);box-sizing:border-box}.login-page small{display:block;margin-top:20px;color:#94b3c2}
+@media(max-width:600px){.assistant-console{right:10px;bottom:10px;width:calc(100vw - 20px)}.assistant-panel{padding:12px}.assistant-panel nav{gap:3px}.assistant-panel nav button{font-size:11px;padding:7px}.assistant-messages,.assistant-scroll{max-height:38vh}}
+
+/* Reference-video HUD: open canvas, compact controls, visible real activity. */
+.apex-overview { transform:scale(.68); transform-origin:top left; }
+.assistant-console { width:auto; right:0; bottom:0; left:0; pointer-events:none; }
+.assistant-console .assistant-panel { position:fixed; right:18px; bottom:94px; width:min(420px,calc(100vw - 36px)); pointer-events:auto; }
+.assistant-toolbar { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); margin:0; padding:0; background:none; gap:6px; pointer-events:auto; }
+.assistant-toolbar button { font:10px var(--font-mono); padding:5px 10px; border-radius:20px; background:#06192bdd; border-color:#245065; }
+.assistant-toolbar button[aria-pressed=true] { color:#ffd080; border-color:#a77c32; }
+.assistant-toolbar .hud-control-gap { width:170px; flex:none; margin:0; }
+.hud-state { position:fixed; left:50%; top:22px; transform:translateX(-50%); border:1px solid #1e6973; border-radius:4px; background:#052635bb; color:#74dadd; padding:4px 12px; font:9px var(--font-mono); letter-spacing:.2em; text-transform:uppercase; max-width:44vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hud-task-feed { position:fixed; top:102px; left:18px; width:172px; max-height:65vh; overflow:auto; scrollbar-width:thin; pointer-events:auto; color:#76b2c7; font:9px/1.7 var(--font-mono); text-transform:uppercase; }
+.hud-task-feed h2 { font:9px var(--font-mono); color:#a4e6f0; letter-spacing:.2em; margin:0 0 10px; }
+.hud-connection { font-size:8px; color:#6297ad; padding-bottom:8px; border-bottom:1px solid #23465b; }
+.hud-task-feed ol { padding:0; list-style:none; }
+.hud-task-feed li { border-left:1px solid #316e82; padding:3px 0 3px 7px; margin:4px 0; overflow-wrap:anywhere; }
+.hud-transcript { text-transform:none; border-top:1px solid #23465b; padding-top:8px; overflow-wrap:anywhere; max-height:160px; overflow:auto; }
+.hud-transcript small { color:#c7edf1; letter-spacing:.2em; }
+.hud-result { position:fixed; right:36px; top:52%; width:95px; text-align:center; color:#ffd080; }
+.hud-result span { display:block; width:52px; height:52px; margin:0 auto 9px; border:1px solid #876e33; border-radius:5px; font-size:28px; line-height:50px; background:#062238cc; box-shadow:0 0 25px #29caff12; }
+.hud-result small { font:8px var(--font-mono); letter-spacing:.1em; }
+.hud-result[data-result=failed] {color:#ff9b85;}
+.hud-error-notice { position:fixed; left:50%; bottom:170px; transform:translateX(-50%); pointer-events:auto; max-width:80vw; background:#291b20ed; color:#ffc6a9; border:1px solid #78504c; border-radius:5px; padding:9px; font:11px var(--font-mono); }
+@media(max-width:700px) {
+ .hud-task-feed { top:94px; left:10px; width:110px; font-size:8px; max-height:28vh; }
+ .hud-transcript {display:none;}
+ .hud-result {right:10px;top:65%;width:75px;}
+ .hud-state {top:14px;left:auto;right:10px;transform:none;max-width:40vw;}
+ .assistant-toolbar .hud-control-gap {width:80px;}
+ .assistant-toolbar {bottom:16px;}
+ .assistant-toolbar button {padding:6px 9px;}
+ .assistant-console .assistant-panel {right:10px;width:calc(100vw - 20px);bottom:70px;}
+}
+@media(prefers-reduced-motion:reduce){.hud-agent-map {transition:none!important;}}
+/* Speech-only mic indicator and the daily left sidebar. */
+.hud-speech-mic {position:fixed;left:50%;bottom:140px;transform:translateX(-50%);display:grid;place-items:center;width:36px;height:36px;border:1px solid #49d9e8;border-radius:50%;color:#94efff!important;background:#062538;box-shadow:0 0 20px #00d5ff44;}
+.apex-overview.daily-overview {transform:none;position:fixed;left:16px;top:18px;width:210px;max-width:42vw;max-height:78vh;overflow:auto;scrollbar-width:thin;font:10px/1.6 var(--font-mono);color:#88bfce;}
+.overview-filament {height:2px;background:#a5f3fc;box-shadow:0 0 12px #00e5ff;margin:0 0 4px;}
+.overview-heading {font-size:8px;letter-spacing:.25em;}
+.overview-clock {display:flex;align-items:baseline;gap:18px;margin-top:12px;}
+.overview-clock time {font:28px system-ui;color:#f0ede8;letter-spacing:.05em;}
+.overview-clock span {font-size:16px;color:#00e5ff;}
+.overview-date {font-size:9px;text-transform:uppercase;letter-spacing:.1em;}
+.daily-overview button {color:#99dfe9;border:1px solid #27586c;background:#061c2dc9;border-radius:4px;padding:5px 8px;font:inherit;cursor:pointer;}
+.daily-overview .overview-location {display:block;margin-top:10px;text-align:left;background:none;border:0;padding:0;color:#c4ebf1;}
+.overview-weather {margin:3px 0;}.weather-credit {font-size:8px;color:#6194a5;}
+.location-picker {position:relative;background:#041421;padding:10px;margin-top:10px;border:1px solid #275063;}
+.location-picker button {display:block;margin:7px 0;text-align:left;}
+.location-picker input {width:100%;background:#081b29;color:#e0f6ff;border:1px solid #275063;padding:7px;font:inherit;}
+.overview-events {margin-top:22px;padding-top:12px;border-top:1px solid #235062;}
+.overview-events h2 {font:10px var(--font-mono);letter-spacing:.2em;color:#9de4ee;margin:0 0 4px;}
+.overview-events > small {font-size:8px;}
+.overview-events ol {list-style:none;padding:0;margin:12px 0;max-height:35vh;overflow:auto;}
+.overview-events li {display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #163245;overflow-wrap:anywhere;}
+.overview-events li time {color:#d3edf1;flex:none;}.overview-events li small {display:block;font-size:8px;opacity:.7;}
+.hud-task-feed {left:auto;right:18px;top:76px;max-height:23vh;}
+@media(max-width:700px){.apex-overview.daily-overview{left:10px;top:14px;width:145px;max-width:40vw;max-height:55vh;font-size:9px;}.overview-clock{gap:8px;}.overview-clock time{font-size:23px;}.overview-clock span{font-size:12px;}.overview-events{margin-top:14px;}.overview-events ol{max-height:20vh;}.hud-task-feed{display:none;}}
+
+.history-source{display:block;color:#a6e6ef;font-size:8px;margin-top:5px}.history-attribution,.history-attribution a{color:#6194a5;font-size:8px}.overview-events li span{min-width:0}

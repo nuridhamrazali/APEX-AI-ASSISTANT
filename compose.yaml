@@ -1,0 +1,33 @@
+services:
+  app:
+    build:
+      context: .
+      target: app
+    env_file: .env.local
+    environment:
+      DATA_DIR: /app/data
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - assistant-data:/app/data
+    restart: unless-stopped
+  worker:
+    build:
+      context: .
+      target: worker
+    env_file: .env.local
+    environment:
+      DATA_DIR: /app/data
+    volumes:
+      - assistant-data:/app/data
+    restart: unless-stopped
+  ollama:
+    profiles: [local]
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+volumes:
+  assistant-data:
+  ollama-models:
