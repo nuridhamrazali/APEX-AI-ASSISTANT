@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createParser } from "eventsource-parser";
 import { z } from "zod";
+import { Mic } from "lucide-react";
+import { useSpeechInput } from "./useSpeechInput";
 import type { OrbState } from "./ApexHeroOrb";
 type Msg = { role: string; content: string };
 type Note = { id: string; title: string; content: string };
@@ -77,7 +79,6 @@ export default function AssistantConsole({
   const id = useRef(""),
     generation = useRef(0),
     abort = useRef<AbortController | null>(null),
-    recognition = useRef<any>(null),
     audio = useRef<HTMLAudioElement | null>(null),
     ctx = useRef<AudioContext | null>(null),
     cleanupAudio = useRef<() => void>(() => {}),
@@ -88,11 +89,19 @@ export default function AssistantConsole({
     onState(s);
     setStatus(label);
   };
-  function stop() {
+  const [detectionEnabled,setDetectionEnabled]=useState(false);
+  const speechDetected=useSpeechInput(detectionEnabled, busy || ["Speaking","Preparing speech"].includes(status),lang,
+    prompt=>{void send(prompt);},message=>{setDetectionEnabled(false);setError(message);});
+  useEffect(()=>{
+    if(speechDetected) state("listening","Listening");
+    else if(status === "Listening") state("idle","Standby");
+    // State callback changes each render; only speech detection drives this transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[speechDetected]);
+  function stop(keepDetection=false) {
+    if(!keepDetection)setDetectionEnabled(false);
     generation.current++;
     abort.current?.abort();
-    recognition.current?.abort();
-    recognition.current = null;
     audio.current?.pause();
     cleanupAudio.current();
     window.speechSynthesis?.cancel();
@@ -115,16 +124,18 @@ export default function AssistantConsole({
     window.speechSynthesis?.addEventListener("voiceschanged", update);
     const mic = () => listenRef.current();
     window.addEventListener("assistant:listen", mic);
+    const openReminders=()=>{setOpen(true);setTab("reminders");};
+    window.addEventListener("apex:open-reminders",openReminders);
     return () => {
       generation.current++;
       abort.current?.abort();
-      recognition.current?.abort();
       audio.current?.pause();
       cleanupAudio.current();
       window.speechSynthesis?.cancel();
       ctx.current?.close();
       window.speechSynthesis?.removeEventListener("voiceschanged", update);
       window.removeEventListener("assistant:listen", mic);
+      window.removeEventListener("apex:open-reminders",openReminders);
     };
     // Mic button in the HUD uses the latest language through the console button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,11 +250,12 @@ export default function AssistantConsole({
     u.onerror = () => {
       if (generation.current === token) state("idle", "Speech stopped");
     };
+    state("speaking", "Speaking");
     window.speechSynthesis.speak(u);
   }
   async function send(prompt: string) {
     if (!prompt.trim()) return;
-    stop();
+    stop(true);
     const token = generation.current;
     abort.current = new AbortController();
     setBusy(true);
@@ -328,42 +340,8 @@ export default function AssistantConsole({
   function listen() {
     stop();
     setError("");
-    const R =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!R) {
-      setError(
-        "Use Chrome or Edge for microphone input, or type your message.",
-      );
-      setOpen(true);
-      return;
-    }
-    const r = new R();
-    recognition.current = r;
-    const token = generation.current;
-    r.lang = lang;
-    r.continuous = false;
-    r.interimResults = false;
-    r.onstart = () => {
-      if (generation.current === token) state("listening", "Listening");
-    };
-    r.onresult = (e: any) => {
-      if (generation.current === token) send(e.results[0][0].transcript);
-    };
-    r.onerror = (e: any) => {
-      if (generation.current === token) {
-        setError(`Microphone: ${e.error}. Check browser permissions.`);
-        state("idle", "Microphone stopped");
-      }
-    };
-    r.onend = () => {
-      if (generation.current === token) state("idle", "Standby");
-    };
-    try {
-      r.start();
-    } catch {
-      setError("Microphone could not start.");
-    }
+    setDetectionEnabled(true);
+    state("idle","Standby");
   }
   async function save() {
     try {
@@ -389,7 +367,7 @@ export default function AssistantConsole({
   return (
     <aside className="assistant-console" aria-label="Assistant controls">
       <div className="hud-state" data-state={status} role="status">{status}</div>
-      <section className="hud-task-feed" aria-label="Live task activity">
+      <section hidden={!open || tab !== "chat"} className="hud-task-feed" aria-label="Live task activity">
         <h2>EXECUTION</h2>
         <div className="hud-connection">{provider?.connected ? provider.model : "MODEL DISCONNECTED"}</div>
         {log.length === 0 ? <p>Waiting for a request</p> : <ol aria-live="polite">{log.map((entry,i)=><li key={i}>{entry.replaceAll("_", " ")}</li>)}</ol>}
@@ -441,7 +419,7 @@ export default function AssistantConsole({
               >
                 {messages.length === 0 && (
                   <p>
-                    Type a message, or press Mic. Save useful facts in Memory so
+                    Type a message, or tap the core to enable speech detection. Save useful facts in Memory so
                     they can be recalled later.
                   </p>
                 )}
@@ -603,6 +581,7 @@ export default function AssistantConsole({
                       due: new Date(due).getTime(),
                     });
                     setTasks((await api("/api/tasks")).tasks);
+                    window.dispatchEvent(new Event("apex:tasks-updated"));
                     setTaskTitle("");
                     setDue("");
                   } catch (e) {
@@ -626,6 +605,7 @@ export default function AssistantConsole({
                         try {
                           await api("/api/tasks", { id: t.id }, "DELETE");
                           setTasks((await api("/api/tasks")).tasks);
+                    window.dispatchEvent(new Event("apex:tasks-updated"));
                         } catch (e) {
                           setError((e as Error).message);
                         }
@@ -640,6 +620,8 @@ export default function AssistantConsole({
           )}
           {tab === "settings" && (
             <div className="assistant-scroll">
+              <label><input type="checkbox" checked={detectionEnabled} onChange={e=>{if(e.target.checked)listen();else stop();}}/> Enable speech detection</label>
+              <p>{detectionEnabled ? "Speech detection enabled. The mic appears only while you speak." : "Tap the core or enable speech detection here. Browser permission is required."}</p>
               <label>
                 <input
                   type="checkbox"
@@ -703,8 +685,8 @@ export default function AssistantConsole({
         <button onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Close" : "Chat"}</button>
         <button onClick={onFocus} aria-pressed={focused}>{focused ? "Agents" : "Core"}</button>
         <span className="hud-control-gap" aria-hidden="true" />
-        <button onClick={listen}>Mic</button>
-        <button onClick={stop}>Stop</button>
+        {speechDetected && <span className="hud-speech-mic" role="status" aria-label="Speech detected"><Mic size={18}/></span>}
+        <button onClick={()=>stop()}>Stop</button>
       </div>
     </aside>
   );

@@ -38,7 +38,7 @@ npm run obsidian -- import /absolute/path/to/vault
 Only import notes you want the assistant to use. Relevant notes and recent conversation text are sent to OpenAI when Astra is selected. Back up the data directory with the app stopped.
 
 ## 4. Voice and reminders
-Click Mic, allow microphone access, then speak. Browser speech recognition availability varies and may use the browser vendor's servers. Default spoken output uses browser speech synthesis. Optional ElevenLabs settings enable paid audio output.
+Tap the core (or enable speech detection in Settings), allow microphone access, then speak. Browser speech recognition availability varies and may use the browser vendor's servers. Default spoken output uses browser speech synthesis. Optional ElevenLabs settings enable paid audio output.
 Use the Reminders panel for reminder creation. Start the worker in a second terminal:
 ```sh
 npm run worker
@@ -83,6 +83,15 @@ Compose supplies the internal Ollama URL. Your machine still supplies memory, co
 - Microphone unavailable: use localhost or HTTPS and a browser supporting speech recognition.
 
 ## Reference-video controls
-The HUD starts with Chat closed. Click Chat to type or open Memory/Reminders/Settings; click Close to return to the canvas. Core hides the agent graph; Agents brings it back. Starting microphone listening also temporarily hides the graph, then restores it when listening ends. Mic requires browser permission. Enable spoken replies in Settings if desired.
-The left feed shows actual tool start/finish events and the latest conversation text. The right indicator means RESPONSE COMPLETE, not that every external action succeeded. Tool failures are marked separately in the feed. Stop cancels activity. The map nodes do not automatically create third-party integrations.
+The HUD starts with Chat closed. Click Chat to type or open Memory/Reminders/Settings; click Close to return to the canvas. Core hides the agent graph; Agents brings it back. The microphone icon appears only when speech is detected, and the graph temporarily fades during detected speech. Browser permission is required. Enable spoken replies in Settings if desired.
+Tool activity is available beside the open Chat panel. The left sidebar now contains the daily overview. The right indicator means RESPONSE COMPLETE, not that every external action succeeded. Tool failures are marked separately in the feed. Stop cancels activity. The map nodes do not automatically create third-party integrations.
 See VIDEO-REFERENCE.md for what could and could not be established from the supplied recording.
+
+## Speech-detected mic and daily overview
+Tap the core or enable **Settings → Enable speech detection** once per page session. The mic icon remains hidden during silence. Detected speech shows the icon and listening state; interim text is not submitted. A final utterance is sent once. Detection pauses while APEX thinks or speaks, then resumes. Stop disables it. No wake word is configured: finalized speech while enabled is treated as a request. The browser's own microphone permission/use indicator remains visible as required by the browser. Some recognition implementations use online services; actual device and browser behavior can vary.
+
+Choose **Set location** on the left, search your city, and select the correct result. Alternatively, choose **Use device location** and allow location permission. The device option is labeled Current location; city search supplies the city name. The selection is remembered only in this browser. Coordinates are sent through the APEX server to Open-Meteo for weather, refreshed every ten minutes. The clock and today's event boundaries use this device's local timezone, even if you select weather for another city.
+
+**ON THIS DAY** means today's scheduled APEX reminders, not historical anniversaries or a synced Google/Outlook calendar. Use Add event to open the reminder form. Events are sorted by time, cancelled items are omitted, and due reminders remain visible for the day. The sidebar refreshes every ten seconds and immediately after saving/cancelling a reminder. No date-range cutoff from the general 100-reminder list is applied to this day's query.
+
+References: https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition and https://open-meteo.com/en/docs/geocoding-api

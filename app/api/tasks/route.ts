@@ -8,6 +8,13 @@ export async function GET(req: Request) {
   try {
     guard(req);
     tickTasks();
+    const params=new URL(req.url).searchParams;
+    if(params.has("start") || params.has("end")){
+      const {start,end}=z.object({start:z.coerce.number().int().min(0),end:z.coerce.number().int().min(0)})
+        .refine(v=>v.end>v.start && v.end-v.start<=26*3600000)
+        .parse({start:params.get("start"),end:params.get("end")});
+      return Response.json({tasks:db().prepare("SELECT * FROM tasks WHERE due >= ? AND due < ? AND status != 'cancelled' ORDER BY due ASC").all(start,end)});
+    }
     return Response.json({
       tasks: db()
         .prepare("SELECT * FROM tasks ORDER BY due DESC LIMIT 100")

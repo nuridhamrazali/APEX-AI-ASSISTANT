@@ -18,3 +18,6 @@ Reference: 46274172bf5b4ebe941a0d0a915d098d.mp4, 24.7 seconds, 512×910 camera r
 
 ## Limits
 This is a close visual/interaction adaptation, not a verified 100% reproduction. Camera perspective, exposure, resolution and motion prevent pixel-exact measurement. Small labels are not fully legible. An automated analysis returned scenes unrelated to the observed video and was discarded; audio commands and exact voice identity were not verified. The recording does not expose code, credentials, integrations, or action verification. Email, Drive, CRM and other external service nodes are not operational integrations. Their existence cannot be inferred from a label or check mark. Original source/configuration or a clear description of demonstrated commands is needed to reproduce undisclosed behavior. No live Astra request or public deployment was performed.
+
+## Subsequent requested changes
+The persistent Mic button was replaced by a speech-detected icon; enable capture through the core or Settings. The left-side execution feed was replaced by time, weather/location, and today's APEX reminders. Tool activity remains available with Chat open. These changes follow the user's instructions after the reference-video pass.

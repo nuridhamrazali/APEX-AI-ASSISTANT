@@ -114,3 +114,26 @@ body {
  .assistant-console .assistant-panel {right:10px;width:calc(100vw - 20px);bottom:70px;}
 }
 @media(prefers-reduced-motion:reduce){.hud-agent-map {transition:none!important;}}
+/* Speech-only mic indicator and the daily left sidebar. */
+.hud-speech-mic {position:fixed;left:50%;bottom:140px;transform:translateX(-50%);display:grid;place-items:center;width:36px;height:36px;border:1px solid #49d9e8;border-radius:50%;color:#94efff!important;background:#062538;box-shadow:0 0 20px #00d5ff44;}
+.apex-overview.daily-overview {transform:none;position:fixed;left:16px;top:18px;width:210px;max-width:42vw;max-height:78vh;overflow:auto;scrollbar-width:thin;font:10px/1.6 var(--font-mono);color:#88bfce;}
+.overview-filament {height:2px;background:#a5f3fc;box-shadow:0 0 12px #00e5ff;margin:0 0 4px;}
+.overview-heading {font-size:8px;letter-spacing:.25em;}
+.overview-clock {display:flex;align-items:baseline;gap:18px;margin-top:12px;}
+.overview-clock time {font:28px system-ui;color:#f0ede8;letter-spacing:.05em;}
+.overview-clock span {font-size:16px;color:#00e5ff;}
+.overview-date {font-size:9px;text-transform:uppercase;letter-spacing:.1em;}
+.daily-overview button {color:#99dfe9;border:1px solid #27586c;background:#061c2dc9;border-radius:4px;padding:5px 8px;font:inherit;cursor:pointer;}
+.daily-overview .overview-location {display:block;margin-top:10px;text-align:left;background:none;border:0;padding:0;color:#c4ebf1;}
+.overview-weather {margin:3px 0;}.weather-credit {font-size:8px;color:#6194a5;}
+.location-picker {position:relative;background:#041421;padding:10px;margin-top:10px;border:1px solid #275063;}
+.location-picker button {display:block;margin:7px 0;text-align:left;}
+.location-picker input {width:100%;background:#081b29;color:#e0f6ff;border:1px solid #275063;padding:7px;font:inherit;}
+.overview-events {margin-top:22px;padding-top:12px;border-top:1px solid #235062;}
+.overview-events h2 {font:10px var(--font-mono);letter-spacing:.2em;color:#9de4ee;margin:0 0 4px;}
+.overview-events > small {font-size:8px;}
+.overview-events ol {list-style:none;padding:0;margin:12px 0;max-height:35vh;overflow:auto;}
+.overview-events li {display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #163245;overflow-wrap:anywhere;}
+.overview-events li time {color:#d3edf1;flex:none;}.overview-events li small {display:block;font-size:8px;opacity:.7;}
+.hud-task-feed {left:auto;right:18px;top:76px;max-height:23vh;}
+@media(max-width:700px){.apex-overview.daily-overview{left:10px;top:14px;width:145px;max-width:40vw;max-height:55vh;font-size:9px;}.overview-clock{gap:8px;}.overview-clock time{font-size:23px;}.overview-clock span{font-size:12px;}.overview-events{margin-top:14px;}.overview-events ol{max-height:20vh;}.hud-task-feed{display:none;}}
