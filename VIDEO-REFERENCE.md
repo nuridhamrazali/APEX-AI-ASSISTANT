@@ -21,3 +21,5 @@ This is a close visual/interaction adaptation, not a verified 100% reproduction.
 
 ## Subsequent requested changes
 The persistent Mic button was replaced by a speech-detected icon; enable capture through the core or Settings. The left-side execution feed was replaced by time, weather/location, and today's APEX reminders. Tool activity remains available with Chat open. These changes follow the user's instructions after the reference-video pass.
+
+Correction: ON THIS DAY now means historical events on the same month/day, not scheduled reminders. The latest user clarification supersedes the earlier daily-reminder interpretation.

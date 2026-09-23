@@ -92,6 +92,7 @@ Tap the core or enable **Settings → Enable speech detection** once per page se
 
 Choose **Set location** on the left, search your city, and select the correct result. Alternatively, choose **Use device location** and allow location permission. The device option is labeled Current location; city search supplies the city name. The selection is remembered only in this browser. Coordinates are sent through the APEX server to Open-Meteo for weather, refreshed every ten minutes. The clock and today's event boundaries use this device's local timezone, even if you select weather for another city.
 
-**ON THIS DAY** means today's scheduled APEX reminders, not historical anniversaries or a synced Google/Outlook calendar. Use Add event to open the reminder form. Events are sorted by time, cancelled items are omitted, and due reminders remain visible for the day. The sidebar refreshes every ten seconds and immediately after saving/cancelling a reminder. No date-range cutoff from the general 100-reminder list is applied to this day's query.
+**ON THIS DAY** shows historical events from the same month and day across previous years. It uses the device's local date, updates at midnight, and shows up to five Wikipedia events with years and source links. It needs an internet connection but no AI API key. If unavailable, use Retry history. Personal reminders remain in Chat → Reminders and are separate from this historical panel.
+
 
 References: https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition and https://open-meteo.com/en/docs/geocoding-api

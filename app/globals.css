@@ -137,3 +137,5 @@ body {
 .overview-events li time {color:#d3edf1;flex:none;}.overview-events li small {display:block;font-size:8px;opacity:.7;}
 .hud-task-feed {left:auto;right:18px;top:76px;max-height:23vh;}
 @media(max-width:700px){.apex-overview.daily-overview{left:10px;top:14px;width:145px;max-width:40vw;max-height:55vh;font-size:9px;}.overview-clock{gap:8px;}.overview-clock time{font-size:23px;}.overview-clock span{font-size:12px;}.overview-events{margin-top:14px;}.overview-events ol{max-height:20vh;}.hud-task-feed{display:none;}}
+
+.history-source{display:block;color:#a6e6ef;font-size:8px;margin-top:5px}.history-attribution,.history-attribution a{color:#6194a5;font-size:8px}.overview-events li span{min-width:0}
